@@ -1,0 +1,15 @@
+[package]
+name = "emu"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+eframe = "0.33.3"
+egui = "0.33.3"
+egui_extras = { version = "*", features = ["all_loaders"] }
+image = { version = "0.25", features = ["jpeg", "png"] }
+env_logger = "0.11.8"
+rfd = "0.17.2"
+toml = "0.9.11"
+open = "5.3.3"
+serde = {version="1.0.228", features = ["derive"]}
