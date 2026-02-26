@@ -1,3 +1,0 @@
-[emulators]
-Azahar = {binary = 'C:\Users\Probb\Desktop\publish\Ryujinx.exe', img = "" }
-Ryujinx = {binary = "C:/Users/Probb/Desktop/publish/Ryujinx.exe", img = "C:/Users/Probb/Documents/GitHub/Probbes.github.io/src/assets/drapeauEN.png"}

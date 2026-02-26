@@ -24,8 +24,6 @@ pub fn init_hashmap() -> HashMap<String, (String, String)> {
     return h;
 }
 
-pub fn get_toml() {}
-
 pub fn add_toml() {
     let mut emulators = HashMap::new();
     emulators.insert(
@@ -45,8 +43,6 @@ pub fn add_toml() {
 }
 
 pub fn remove_toml() {}
-
-pub fn get_hash() {}
 
 pub fn add_hash() {}
 

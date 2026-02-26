@@ -6,8 +6,8 @@ use egui::{FontId, RichText, Sense, TextStyle, UiBuilder};
 use crate::application::app_toml;
 
 pub struct MyApp {
-    centralpanel: Panel,
-    emulators: HashMap<String, (String, String)>,
+    pub centralpanel: Panel,
+    pub emulators: HashMap<String, (String, String)>,
 }
 
 pub enum Panel {
