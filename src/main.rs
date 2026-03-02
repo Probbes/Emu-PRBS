@@ -8,6 +8,7 @@ use application::app_toml;
 
 fn main() -> eframe::Result<()> {
     //Main with app creation
+    //TEST
     env_logger::init();
 
     let options = eframe::NativeOptions {
