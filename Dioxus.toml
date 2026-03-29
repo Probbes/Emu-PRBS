@@ -1,0 +1,8 @@
+[application]
+name = "Emu-PRBS"
+
+[bundle]
+identifier = "com.Probbes.app"
+publisher = "Probbes"
+
+[desktop]
