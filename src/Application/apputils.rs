@@ -11,6 +11,9 @@ use std::process::Command;
 
 use crate::EmuSettings;
 
+
+//TODO!!! Sync emulators name from the cloud (git pull gives emulators folders, get those names in the emulators Hashmap)
+
 pub fn init_settings() -> EmuSettings {
     let file = match fs::read_to_string("settings.toml") {
         Ok(content) => content,

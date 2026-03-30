@@ -1,4 +1,4 @@
-//use std::process::Command;
+use std::process::Command;
 
 use crate::Application::apputils;
 use crate::EmuSettings;
@@ -19,16 +19,12 @@ pub fn Play_Component(settings: Signal<EmuSettings>) -> Element {
 
                     match apputils::add_repo_to_emu(settings, key.clone(), val.clone()) {
                         Ok(()) => {
-                            match open::that(path) {
-                                Ok(()) => println!("Opened '{}' successfully.", path),
-                                Err(_err) => {
-                                    MessageDialog::new()
-                                        .set_title("Error")
-                                        .set_description("Error while opening the emulator. Please check your emulator settings inside the app.")
-                                        .set_buttons(rfd::MessageButtons::Ok)
-                                        .set_level(rfd::MessageLevel::Error)
-                                        .show();
-                                }
+                            let status = Command::new(path)
+                                .spawn();
+
+                            match status {
+                                Ok(_) => println!("Game launched successfully!"),
+                                Err(e) => eprintln!("Failed to launch RetroArch: {}", e),
                             }
                         }
                         Err(err) => {
