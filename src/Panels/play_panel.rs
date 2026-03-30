@@ -1,10 +1,12 @@
+//use std::process::Command;
+
 use crate::Application::apputils;
 use crate::EmuSettings;
 use dioxus::prelude::*;
 use rfd::MessageDialog;
 
 #[component]
-pub fn Play_Component(settings: Signal<EmuSettings>, log: Signal<String>) -> Element {
+pub fn Play_Component(settings: Signal<EmuSettings>) -> Element {
     let s = settings.read();
     let emulators = s.emulators.clone();
 
@@ -15,27 +17,59 @@ pub fn Play_Component(settings: Signal<EmuSettings>, log: Signal<String>) -> Ele
                 onclick: move |_| {
                     let path = &val.0;
 
-                    match open::that(path) {
-                        Ok(()) => println!("Opened '{}' successfully.", path),
-                        Err(_err) => {
-                           MessageDialog::new()
+                    match apputils::add_repo_to_emu(settings, key.clone(), val.clone()) {
+                        Ok(()) => {
+                            match open::that(path) {
+                                Ok(()) => println!("Opened '{}' successfully.", path),
+                                Err(_err) => {
+                                    MessageDialog::new()
+                                        .set_title("Error")
+                                        .set_description("Error while opening the emulator. Please check your emulator settings inside the app.")
+                                        .set_buttons(rfd::MessageButtons::Ok)
+                                        .set_level(rfd::MessageLevel::Error)
+                                        .show();
+                                }
+                            }
+                        }
+                        Err(err) => {
+                            MessageDialog::new()
                             .set_title("Error")
-                            .set_description("Error while opening the emulator. Please check your emulator settings inside the app.")
+                            .set_description(err.to_string())
                             .set_buttons(rfd::MessageButtons::Ok)
                             .set_level(rfd::MessageLevel::Error)
                             .show();
                         }
+
                     }
 
-                    apputils::add_repo_to_emu(settings, key.clone(), val.clone());
+
                 },
                 "{key}",
             }
         }
-        button { onclick: move |_| {
-                apputils::add_emu_to_repo(settings);
-            } ,
-            "Get Saves",
-        }
+        // button { onclick: move |_| {
+        //         launch_retroarch("C:/RetroArch-Win64/downloads/GBA/Advanced Wars.gba", "mgba_libretro");
+        //     } ,
+        //     "Get Saves",
+        // }
     }
 }
+
+/* fn launch_retroarch(rom_path: &str, core_name: &str) {
+    // 1. Define your paths (In a real app, these might come from a config file)
+    let retroarch_path = r"C:\RetroArch-Win64\retroarch.exe";
+    let core_path = format!(r"C:\RetroArch-Win64\cores\{}.dll", core_name);
+
+    // 2. Build the command
+    let status = Command::new(retroarch_path)
+        .arg("-L")
+        .arg(&core_path) // Load the specific core
+        .arg(rom_path) // Load the game
+        .arg("-f") // Optional: Start in Fullscreen
+        .spawn(); // .spawn() lets your launcher stay open
+
+    match status {
+        Ok(_) => println!("Game launched successfully!"),
+        Err(e) => eprintln!("Failed to launch RetroArch: {}", e),
+    }
+} */

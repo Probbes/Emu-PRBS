@@ -42,11 +42,12 @@ fn App() -> Element {
 
     let settings = use_signal(|| apputils::init_settings());
 
-    let log = use_signal(|| String::new());
+    //let log = use_signal(|| String::new());
 
     use_hook(|| {
-        println!("This runs only ONCE at startup");
-        apputils::git_pull(settings);
+        if !settings.read().git.get_repo().is_empty() {
+            apputils::git_pull(settings);
+        }
     });
 
     rsx! {
@@ -57,7 +58,7 @@ fn App() -> Element {
             div { class: "flex-3",
                 match panel() {
                     Panel::Play => rsx! {
-                        Play_Component { settings, log }
+                        Play_Component { settings }
                     },
                     Panel::Github => rsx! {
                         Github_Component { settings }
@@ -69,10 +70,6 @@ fn App() -> Element {
                         Settings_Component { settings }
                     },
                 }
-            }
-
-            div {class:"log",
-            "HELLO ! {log}"
             }
 
             div { class: "flex-1",
@@ -113,7 +110,18 @@ fn quit(settings: Signal<EmuSettings>) {
 
     if confirm == MessageDialogResult::Yes {
         window.close();
-        apputils::add_emu_to_repo(settings);
+        match apputils::add_emu_to_repo(settings) {
+            Ok(()) => println!("successful"),
+            Err(err) => {
+                MessageDialog::new()
+                    .set_title("Error")
+                    .set_description(err.to_string())
+                    .set_buttons(rfd::MessageButtons::Ok)
+                    .set_level(rfd::MessageLevel::Error)
+                    .show();
+            }
+        }
+
         apputils::git_push(settings);
     }
 }

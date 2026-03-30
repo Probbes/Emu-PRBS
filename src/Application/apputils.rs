@@ -1,15 +1,13 @@
-use dioxus::prelude::*;
+use dioxus::{prelude::*, CapturedError};
 use fs_utils::copy::copy_directory;
 use rfd::FileDialog;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
+use std::ffi::OsStr;
 use std::fs::{self, File};
+use std::fs::{remove_dir_all, DirBuilder};
 use std::io::Write;
 use std::path::Path;
 use std::process::Command;
-use std::{
-    fs::{remove_dir_all, DirBuilder},
-    path::PathBuf,
-};
 
 use crate::EmuSettings;
 
@@ -182,7 +180,11 @@ pub fn git_clone(settings: Signal<EmuSettings>) {
     println!("{output:?}");
 }
 
-pub fn add_repo_to_emu(settings: Signal<EmuSettings>, key: String, val: (String, String)) {
+pub fn add_repo_to_emu(
+    settings: Signal<EmuSettings>,
+    key: String,
+    val: (String, String),
+) -> Result<(), CapturedError> {
     let s = settings.read();
     let git_path = Path::new(s.git.get_directory())
         .join(s.git.get_repo())
@@ -196,12 +198,14 @@ pub fn add_repo_to_emu(settings: Signal<EmuSettings>, key: String, val: (String,
     let destination = Path::new(&val.1);
     if let Some(parent) = destination.parent() {
         if let Some(source_name) = destination.file_name() {
-            overwrite_folder(&git_path.join(source_name), parent);
+            overwrite_folder(&git_path.join(source_name), parent)?;
         }
     }
+
+    Ok(())
 }
 
-pub fn add_emu_to_repo(settings: Signal<EmuSettings>) {
+pub fn add_emu_to_repo(settings: Signal<EmuSettings>) -> Result<(), CapturedError> {
     let s = settings.read();
     let emulators = s.emulators.clone();
 
@@ -217,36 +221,69 @@ pub fn add_emu_to_repo(settings: Signal<EmuSettings>) {
         }
 
         let destination = Path::new(&val.1); //'C:\RetroArch-Win64\saves'
-        overwrite_folder(&destination.to_path_buf(), &git_path);
+        overwrite_folder(&destination.to_path_buf(), &git_path)?
     }
+
+    Ok(())
 }
 
-pub fn overwrite_folder(source: &PathBuf, destination: &Path) {
-    if copy_directory(source, destination).is_ok() {
-        println!(
-            "Copied {} inside {:?}",
-            source.to_string_lossy(),
-            destination
-        );
+pub fn overwrite_folder(source: &Path, destination: &Path) -> Result<(), CapturedError> {
+    println!("Validating 6");
+    // Ensure source has a valid folder name
+    let name = source
+        .file_name()
+        .ok_or_else(|| CapturedError::msg("Source has no valid folder name"))?;
+
+    // Prevent empty or suspicious names
+    if name == OsStr::new("") {
+        return Err(CapturedError::msg("Invalid source folder name"));
     }
 
-    // If copy failed, try removing existing folder
-    let name = match source.file_name() {
-        Some(n) => n,
-        None => return,
-    };
+    let target = destination.join(name);
+    println!("Validating 7");
+    // Safety checks before deletion
+    validate_safe_to_delete(&target, destination)?;
+    println!("Validating 8");
+    // Try copy first
+    if let Err(_) = copy_directory(source, destination) {
+        // Only delete if target exists and is a directory
+        if target.exists() {
+            remove_dir_all(&target)?;
+        }
 
-    if let Err(err) = remove_dir_all(destination.join(name)) {
-        println!("{err}");
+        // Retry copy
+        copy_directory(source, destination)?;
     }
 
-    // Try copy again
-    match copy_directory(source, destination) {
-        Ok(_) => println!(
-            "Copied {} inside {:?}",
-            source.to_string_lossy(),
-            destination
-        ),
-        Err(err) => println!("{err}"),
+    Ok(())
+}
+
+fn validate_safe_to_delete(target: &Path, base: &Path) -> Result<(), CapturedError> {
+    println!("Validating 1");
+    let target = target
+        .canonicalize()
+        .map_err(|_| CapturedError::msg("Invalid target path"))?;
+    println!("Validating 2");
+    let base = base
+        .canonicalize()
+        .map_err(|_| CapturedError::msg("Invalid base path"))?;
+    println!("Validating 3");
+    // Prevent deleting root directories
+    if target.parent().is_none() {
+        return Err(CapturedError::msg("Refusing to delete root directory"));
     }
+    println!("Validating 4");
+    // Ensure target is inside the destination directory
+    if !target.starts_with(&base) {
+        return Err(CapturedError::msg(
+            "Target is outside destination directory",
+        ));
+    }
+    println!("Validating 5");
+    // Prevent deleting the base directory itself
+    if target == base {
+        return Err(CapturedError::msg("Refusing to delete destination root"));
+    }
+
+    Ok(())
 }
