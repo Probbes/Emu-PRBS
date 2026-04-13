@@ -4,5 +4,8 @@ name = "Emu-PRBS"
 [bundle]
 identifier = "com.Probbes.app"
 publisher = "Probbes"
+category = "Utility"
+short_description = "A emulator manager that sync save files to github"
+icon = ["assets/favicon.ico", "favicon.ico"]
 
 [desktop]

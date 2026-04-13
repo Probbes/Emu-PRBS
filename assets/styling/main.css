@@ -1,24 +1,7 @@
+@import "tailwindcss";
+
 body {
-    background-color: #000000;
+    background-color: #222222;
     color: #ffffff;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-}
-
-.testclass {
-    color: aqua;
-    background-color: red;
-}
-
-button {
-    background-color: rgb(0, 182, 182);
-    margin: 2px;
-}
-
-input {
-    background-color: gray;
-    width: 600px,
-}
-
-h1 {
-    font-size: 5vw;
 }

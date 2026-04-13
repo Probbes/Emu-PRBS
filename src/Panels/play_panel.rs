@@ -11,43 +11,47 @@ pub fn Play_Component(settings: Signal<EmuSettings>) -> Element {
     let emulators = s.emulators.clone();
 
     rsx! {
-        h1 { "Play" }
-        for (key, val) in emulators {
-            button {
-                onclick: move |_| {
-                    let path = &val.0;
+        div {class:" bg-red-500 min-h-full flex flex-col",
+            div {class:"flex-1 bg-blue-400",
+                h1 { "Games" }
+                input { r#type:"range", min:"1", max:"10",}
+            }
 
-                    match apputils::add_repo_to_emu(settings, key.clone(), val.clone()) {
-                        Ok(()) => {
-                            let status = Command::new(path)
-                                .spawn();
-
-                            match status {
-                                Ok(_) => println!("Game launched successfully!"),
-                                Err(e) => eprintln!("Failed to launch RetroArch: {}", e),
-                            }
-                        }
-                        Err(err) => {
-                            MessageDialog::new()
-                            .set_title("Error")
-                            .set_description(err.to_string())
-                            .set_buttons(rfd::MessageButtons::Ok)
-                            .set_level(rfd::MessageLevel::Error)
-                            .show();
-                        }
-
+            div { class: "flex-18 p-4 flex flex-wrap content-start",
+                for (key, val) in emulators {
+                        button {
+                        class: "bg-purple-300 w-40 h-40 m-5 pb-10",
+                        onclick: move |_| {
+                            play(settings, &key, &val);
+                        },
+                        "{key}",
                     }
-
-
-                },
-                "{key}",
+                }
             }
         }
-        // button { onclick: move |_| {
-        //         launch_retroarch("C:/RetroArch-Win64/downloads/GBA/Advanced Wars.gba", "mgba_libretro");
-        //     } ,
-        //     "Get Saves",
-        // }
+    }
+}
+
+fn play(settings: Signal<EmuSettings>, key: &String, val: &(String, String)) {
+    let path = &val.0;
+
+    match apputils::add_repo_to_emu(settings, key.clone(), val.clone()) {
+        Ok(()) => {
+            let status = Command::new(path).spawn();
+
+            match status {
+                Ok(_) => println!("Game launched successfully!"),
+                Err(e) => eprintln!("Failed to launch RetroArch: {}", e),
+            }
+        }
+        Err(err) => {
+            MessageDialog::new()
+                .set_title("Error")
+                .set_description(err.to_string())
+                .set_buttons(rfd::MessageButtons::Ok)
+                .set_level(rfd::MessageLevel::Error)
+                .show();
+        }
     }
 }
 

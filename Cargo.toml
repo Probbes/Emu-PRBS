@@ -1,10 +1,12 @@
 [package]
-name = "Emu-PRBS"
+name = "Chrysocolle"
 version = "0.1.0"
-authors = ["Probbes <megevand.antoine@gmail.com>"]
-edition = "2021"
+authors = ["Probbes"]
+edition = "2024"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "Chrysocolle"
+path = "src/main.rs"
 
 [dependencies]
 dioxus = { version = "0.7.1", features = ["fullstack"] }
@@ -13,6 +15,7 @@ fs-utils = "1.1.4"
 open = "5.3.3"
 rfd = "0.17.2"
 serde = "1.0.228"
+symlink = "0.1.0"
 toml = "1.0.6"
 
 [features]

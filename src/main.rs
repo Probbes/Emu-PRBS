@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 const MAIN_CSS: &str = include_str!("../assets/styling/main.css");
 const TAILWIND_CSS: &str = include_str!("../assets/tailwind.css");
+static ICON: Asset = asset!("/assets/chrysocolle.png");
 
 use Panels::{Emulators_Component, Github_Component, Play_Component, Settings_Component};
 mod Panels;
@@ -23,9 +24,9 @@ fn main() {
 #[derive(PartialEq, Eq, Clone, Copy)]
 enum Panel {
     Play,
-    Settings,
-    Github,
     Emulators,
+    Github,
+    Settings,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
@@ -35,6 +36,9 @@ struct EmuSettings {
     emulators: HashMap<String, (String, String)>,
     git: EmuGit,
 }
+
+//TODO : Symbolic link -> breaks some emulator (tested on retroarch, games do not launch if
+//                        symlic folder present). Also, symlink creation requires admin privileges
 
 #[component]
 fn App() -> Element {
@@ -46,15 +50,17 @@ fn App() -> Element {
 
     use_hook(|| {
         if !settings.read().git.get_repo().is_empty() {
-            apputils::git_pull(settings);
+            //apputils::git_pull(settings); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         }
     });
 
     rsx! {
         style { "{MAIN_CSS}" }
         style { "{TAILWIND_CSS}" }
+        document::Title{"Chrysocolle"}
+        document::Link{rel: "icon", href: asset!("/assets/favicon.ico")}
 
-        div { class: "flex h-screen",
+        div { class: "flex flex-row-reverse bg-green-500 min-h-screen",
             div { class: "flex-3",
                 match panel() {
                     Panel::Play => rsx! {
@@ -73,7 +79,15 @@ fn App() -> Element {
             }
 
             div { class: "flex-1",
-                Options { panel, settings }
+                div { class:"flex flex-col",
+                    div { class: "flex justify-center-safe items-center my-6",
+                        img {class:"h-12 mx-5 object-cover", src: ICON }
+                        "Chrysocolle"
+                    }
+                    div { class: " bg-cyan-500 my-2",
+                        Options { panel, settings }}
+                }
+
             }
         }
     }
@@ -83,17 +97,17 @@ fn App() -> Element {
 fn Options(panel: Signal<Panel>, settings: Signal<EmuSettings>) -> Element {
     rsx! {
 
-        div { class: "flex flex-col gap-2 p-4 b",
+        div { class: "flex flex-col gap-1 min-w-full",
 
-            button { onclick: move |_| panel.set(Panel::Play),"Play"}
+            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Play),"Games"}
 
-            button { onclick: move |_| panel.set(Panel::Settings), "Settings" }
+            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Emulators), "Emulators" }
 
-            button { onclick: move |_| panel.set(Panel::Github), "Github" }
+            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Github), "Cloud" }
 
-            button { onclick: move |_| panel.set(Panel::Emulators), "Emulators" }
+            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Settings), "Settings" }
 
-            button { onclick: move |_| quit(settings), "Quit" }
+            button { class:"optionbutton", onclick: move |_| quit(settings), "Quit" }
         }
     }
 }
