@@ -1,12 +1,12 @@
 use std::process::Command;
 
-use crate::Application::apputils;
+use crate::Application::gitutils;
 use crate::EmuSettings;
 use dioxus::prelude::*;
 use rfd::MessageDialog;
 
 #[component]
-pub fn Play_Component(settings: Signal<EmuSettings>) -> Element {
+pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
     let s = settings.read();
     let emulators = s.emulators.clone();
 
@@ -35,7 +35,7 @@ pub fn Play_Component(settings: Signal<EmuSettings>) -> Element {
 fn play(settings: Signal<EmuSettings>, key: &String, val: &(String, String)) {
     let path = &val.0;
 
-    match apputils::add_repo_to_emu(settings, key.clone(), val.clone()) {
+    match gitutils::add_repo_to_emu(settings, key.clone(), val.clone()) {
         Ok(()) => {
             let status = Command::new(path).spawn();
 

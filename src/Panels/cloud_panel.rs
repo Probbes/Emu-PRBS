@@ -1,10 +1,10 @@
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{Application::apputils, EmuSettings};
+use crate::{Application::apputils, Application::gitutils, EmuSettings};
 
 #[component]
-pub fn Github_Component(settings: Signal<EmuSettings>) -> Element {
+pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
     let s = settings.read();
     let log = use_signal(|| String::new());
 
@@ -34,11 +34,11 @@ pub fn Github_Component(settings: Signal<EmuSettings>) -> Element {
         button { onclick: move |_| apply_settings(settings), "Apply Settings" }
         button { onclick: move |_| {
             apply_settings(settings);
-            apputils::git_pull(settings);
+            gitutils::git_pull(settings);
         }, "Git Pull" }
         button { onclick: move |_| {
             apply_settings(settings);
-            apputils::git_push(settings);}, "Git Push"
+            gitutils::git_push(settings);}, "Git Push"
         }
         div {
             div {"Output: "}

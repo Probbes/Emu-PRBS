@@ -4,16 +4,17 @@ use dioxus::prelude::*;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::Path;
 
 const MAIN_CSS: &str = include_str!("../assets/styling/main.css");
 const TAILWIND_CSS: &str = include_str!("../assets/tailwind.css");
 static ICON: Asset = asset!("/assets/chrysocolle.png");
 
-use Panels::{Emulators_Component, Github_Component, Play_Component, Settings_Component};
+use Panels::{Cloud_Component, Emulators_Component, Games_Component, Settings_Component};
 mod Panels;
 
 mod Application;
-use Application::apputils;
+use crate::{Application::apputils, Application::gitutils};
 
 use crate::Panels::EmuGit;
 
@@ -23,33 +24,32 @@ fn main() {
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 enum Panel {
-    Play,
+    Games,
     Emulators,
-    Github,
+    Cloud,
     Settings,
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 struct EmuSettings {
     username: String,
-    volume: u8,
+    project_folder: String,
     emulators: HashMap<String, (String, String)>,
     git: EmuGit,
 }
 
-//TODO : Symbolic link -> breaks some emulator (tested on retroarch, games do not launch if
-//                        symlic folder present). Also, symlink creation requires admin privileges
-
 #[component]
 fn App() -> Element {
-    let panel = use_signal(|| Panel::Play);
+    let panel = use_signal(|| Panel::Games);
 
-    let settings = use_signal(|| apputils::init_settings());
+    let mut settings = use_signal(|| apputils::init_settings());
 
-    //let log = use_signal(|| String::new());
+    let mut show_folder_warning = use_signal(|| false);
 
     use_hook(|| {
-        if !settings.read().git.get_repo().is_empty() {
+        if settings.read().project_folder.is_empty() {
+            show_folder_warning.set(true);
+        } else {
             //apputils::git_pull(settings); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         }
     });
@@ -59,15 +59,14 @@ fn App() -> Element {
         style { "{TAILWIND_CSS}" }
         document::Title{"Chrysocolle"}
         document::Link{rel: "icon", href: asset!("/assets/favicon.ico")}
-
         div { class: "flex flex-row-reverse bg-green-500 min-h-screen",
             div { class: "flex-3",
                 match panel() {
-                    Panel::Play => rsx! {
-                        Play_Component { settings }
+                    Panel::Games => rsx! {
+                        Games_Component { settings }
                     },
-                    Panel::Github => rsx! {
-                        Github_Component { settings }
+                    Panel::Cloud => rsx! {
+                        Cloud_Component { settings }
                     },
                     Panel::Emulators => rsx! {
                         Emulators_Component { settings }
@@ -90,6 +89,20 @@ fn App() -> Element {
 
             }
         }
+
+        if *show_folder_warning.read() {
+            div { class:"absolute opacity-90 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-300 size-full",
+                div{ class: "absolute opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-orange-300 h-6/10 w-6/10",
+                    "Folder of the app containing the settings file was not found. Please select the folder where settings.toml should be :"
+                    button { class:"", onclick: move |_| {
+                        let picked_folder = apputils::pick_folder();
+                        settings.write().project_folder = picked_folder.clone();
+                        apputils::create_app_space(Path::new(&picked_folder));
+                        show_folder_warning.set(false)
+                    },"..."}
+                }
+            }
+        }
     }
 }
 
@@ -99,11 +112,11 @@ fn Options(panel: Signal<Panel>, settings: Signal<EmuSettings>) -> Element {
 
         div { class: "flex flex-col gap-1 min-w-full",
 
-            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Play),"Games"}
+            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Games),"Games"}
 
             button { class:"optionbutton", onclick: move |_| panel.set(Panel::Emulators), "Emulators" }
 
-            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Github), "Cloud" }
+            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Cloud), "Cloud" }
 
             button { class:"optionbutton", onclick: move |_| panel.set(Panel::Settings), "Settings" }
 
@@ -124,18 +137,12 @@ fn quit(settings: Signal<EmuSettings>) {
 
     if confirm == MessageDialogResult::Yes {
         window.close();
-        match apputils::add_emu_to_repo(settings) {
+        match gitutils::add_emu_to_repo(settings) {
             Ok(()) => println!("successful"),
             Err(err) => {
-                MessageDialog::new()
-                    .set_title("Error")
-                    .set_description(err.to_string())
-                    .set_buttons(rfd::MessageButtons::Ok)
-                    .set_level(rfd::MessageLevel::Error)
-                    .show();
+                apputils::show_error(&format!("Error adding to repository : {}", err));
             }
         }
-
-        apputils::git_push(settings);
+        gitutils::git_push(settings);
     }
 }
