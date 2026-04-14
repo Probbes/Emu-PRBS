@@ -34,9 +34,25 @@ enum Panel {
 struct EmuSettings {
     username: String,
     project_folder: String,
+    //games: HashMap<&str, Game>
+    //emulators: HashMap<&str, Emulator> 
     emulators: HashMap<String, (String, String)>,
     git: EmuGit,
 }
+
+/*
+struct Game {
+    name: String,
+    path: Path,
+    fullscreen: bool,
+    emulator: Emulator
+}
+
+enum Emulator {
+    RetroArch {name: String, path: Path, default_fullscreen: bool, core: Path},
+    Other {name: String, path: Path, default_fullscreen: bool},
+}
+*/
 
 #[component]
 fn App() -> Element {
@@ -97,6 +113,7 @@ fn App() -> Element {
                     button { class:"", onclick: move |_| {
                         let picked_folder = apputils::pick_folder();
                         settings.write().project_folder = picked_folder.clone();
+                        apputils::add_toml(&settings.read());
                         apputils::create_app_space(Path::new(&picked_folder));
                         show_folder_warning.set(false)
                     },"..."}
