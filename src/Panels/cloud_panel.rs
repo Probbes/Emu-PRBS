@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -24,9 +26,9 @@ pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
             input {
                 r#type: "text",
                 size:"40",
-                value: s.git.directory.as_str(),
+                value: s.git.directory.to_string_lossy().into_owned(),  //WTH is a Cow ?
                 oninput: move |e| {
-                    settings.with_mut(|s| s.git.directory = e.value());
+                    settings.with_mut(|s| s.git.directory = PathBuf::from(e.value()));
                 },
             }
             button { onclick: move |_| {settings.with_mut(|s| {s.git.directory = apputils::pick_folder();});}, "..." }
@@ -50,11 +52,11 @@ pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 pub struct EmuGit {
     repo: String,
-    directory: String,
+    directory: PathBuf,
 }
 
 impl EmuGit {
-    pub fn get_directory(&self) -> &str {
+    pub fn get_directory(&self) -> &PathBuf {
         &self.directory
     }
     pub fn get_repo(&self) -> &str {

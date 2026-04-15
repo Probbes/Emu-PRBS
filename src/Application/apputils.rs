@@ -7,6 +7,7 @@ use std::fs::remove_dir_all;
 use std::fs::{self, DirBuilder, File};
 use std::io::Write;
 use std::path::Path;
+use std::path::PathBuf;
 
 use crate::EmuSettings;
 
@@ -89,13 +90,13 @@ pub fn pick_file() -> String {
     }
 }
 
-pub fn pick_folder() -> String {
+pub fn pick_folder() -> PathBuf {
     let files = FileDialog::new().set_directory("/").pick_folder();
     match files {
-        Some(i) => i.into_os_string().into_string().unwrap_or(String::new()),
+        Some(i) => i,
         None => {
             println!("Error with the folder");
-            String::new()
+            PathBuf::new()
         }
     }
 }

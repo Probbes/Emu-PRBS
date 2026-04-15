@@ -4,7 +4,7 @@ use dioxus::prelude::*;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const MAIN_CSS: &str = include_str!("../assets/styling/main.css");
 const TAILWIND_CSS: &str = include_str!("../assets/tailwind.css");
@@ -33,26 +33,26 @@ enum Panel {
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 struct EmuSettings {
     username: String,
-    project_folder: String,
-    //games: HashMap<&str, Game>
-    //emulators: HashMap<&str, Emulator> 
-    emulators: HashMap<String, (String, String)>,
+    project_folder: PathBuf,
+    games: HashMap<String, Game>,
+    emulators: HashMap<String, Emulator>,
     git: EmuGit,
 }
 
-/*
+#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 struct Game {
     name: String,
-    path: Path,
+    path: PathBuf,
     fullscreen: bool,
-    emulator: Emulator
+    emulator: String,
 }
-
+#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 enum Emulator {
-    RetroArch {name: String, path: Path, default_fullscreen: bool, core: Path},
-    Other {name: String, path: Path, default_fullscreen: bool},
+    RetroArch {name: String, path: PathBuf, default_fullscreen: bool, core: PathBuf},
+    Other {name: String, path: PathBuf, default_fullscreen: bool},
+    #[default]
+    None,
 }
-*/
 
 #[component]
 fn App() -> Element {
@@ -63,7 +63,7 @@ fn App() -> Element {
     let mut show_folder_warning = use_signal(|| false);
 
     use_hook(|| {
-        if settings.read().project_folder.is_empty() {
+        if settings.read().project_folder.is_dir() {
             show_folder_warning.set(true);
         } else {
             //apputils::git_pull(settings); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -1,14 +1,14 @@
 use std::process::Command;
 
 use crate::Application::gitutils;
-use crate::EmuSettings;
+use crate::{EmuSettings, Game};
 use dioxus::prelude::*;
 use rfd::MessageDialog;
 
 #[component]
 pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
     let s = settings.read();
-    let emulators = s.emulators.clone();
+    let games = s.games.clone();
 
     rsx! {
         div {class:" bg-red-500 min-h-full flex flex-col",
@@ -18,7 +18,7 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
             }
 
             div { class: "flex-18 p-4 flex flex-wrap content-start",
-                for (key, val) in emulators {
+                for (key, val) in games {
                         button {
                         class: "bg-purple-300 w-40 h-40 m-5 pb-10",
                         onclick: move |_| {
@@ -32,8 +32,10 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
     }
 }
 
-fn play(settings: Signal<EmuSettings>, key: &String, val: &(String, String)) {
-    let path = &val.0;
+fn play(settings: Signal<EmuSettings>, key: &String, val: &Game) {
+    let path = &val.path;
+
+    /*
 
     match gitutils::add_repo_to_emu(settings, key.clone(), val.clone()) {
         Ok(()) => {
@@ -53,6 +55,7 @@ fn play(settings: Signal<EmuSettings>, key: &String, val: &(String, String)) {
                 .show();
         }
     }
+     */
 }
 
 /* fn launch_retroarch(rom_path: &str, core_name: &str) {
