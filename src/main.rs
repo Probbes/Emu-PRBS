@@ -48,8 +48,17 @@ struct Game {
 }
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 enum Emulator {
-    RetroArch {name: String, path: PathBuf, default_fullscreen: bool, core: PathBuf},
-    Other {name: String, path: PathBuf, default_fullscreen: bool},
+    RetroArch {
+        name: String,
+        path: PathBuf,
+        default_fullscreen: bool,
+        core: PathBuf,
+    },
+    Other {
+        name: String,
+        path: PathBuf,
+        default_fullscreen: bool,
+    },
     #[default]
     None,
 }
@@ -63,7 +72,7 @@ fn App() -> Element {
     let mut show_folder_warning = use_signal(|| false);
 
     use_hook(|| {
-        if settings.read().project_folder.is_dir() {
+        if !settings.read().project_folder.is_dir() {
             show_folder_warning.set(true);
         } else {
             //apputils::git_pull(settings); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -154,12 +163,12 @@ fn quit(settings: Signal<EmuSettings>) {
 
     if confirm == MessageDialogResult::Yes {
         window.close();
-        match gitutils::add_emu_to_repo(settings) {
+        match gitutils::add_emu_to_repo(&*settings.read()) {
             Ok(()) => println!("successful"),
             Err(err) => {
                 apputils::show_error(&format!("Error adding to repository : {}", err));
             }
         }
-        gitutils::git_push(settings);
+        gitutils::git_push(&*settings.read());
     }
 }

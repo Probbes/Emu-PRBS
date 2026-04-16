@@ -8,16 +8,15 @@ use crate::{Application::apputils, Application::gitutils, EmuSettings};
 #[component]
 pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
     let s = settings.read();
-    let log = use_signal(|| String::new());
 
     rsx! {
         h1 { "Github" }
          div { "Repository: "
             input {
                 r#type: "text",
-                value: s.git.repo.as_str(),
+                value: s.git.repo_name.as_str(),
                 oninput: move |e| {
-                    settings.with_mut(|s| s.git.repo = e.value());
+                    settings.with_mut(|s| s.git.repo_name = e.value());
                 },
             }
         }
@@ -33,25 +32,24 @@ pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
             }
             button { onclick: move |_| {settings.with_mut(|s| {s.git.directory = apputils::pick_folder();});}, "..." }
         }
-        button { onclick: move |_| apply_settings(settings), "Apply Settings" }
+        button { onclick: move |_| apply_settings(&*settings.read()), "Apply Settings" }
         button { onclick: move |_| {
-            apply_settings(settings);
-            gitutils::git_pull(settings);
+            apply_settings(&*settings.read());
+            gitutils::git_pull(&*settings.read());
         }, "Git Pull" }
         button { onclick: move |_| {
-            apply_settings(settings);
-            gitutils::git_push(settings);}, "Git Push"
+            apply_settings(&*settings.read());
+            gitutils::git_push(&*settings.read());}, "Git Push"
         }
         div {
             div {"Output: "}
-            div {style: "white-space: pre-wrap;", "{log}"}
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 pub struct EmuGit {
-    repo: String,
+    repo_name: String,
     directory: PathBuf,
 }
 
@@ -59,11 +57,11 @@ impl EmuGit {
     pub fn get_directory(&self) -> &PathBuf {
         &self.directory
     }
-    pub fn get_repo(&self) -> &str {
-        &self.repo
+    pub fn get_repo_name(&self) -> &str {
+        &self.repo_name
     }
 }
 
-fn apply_settings(settings: Signal<EmuSettings>) {
-    apputils::add_toml(&settings.read());
+fn apply_settings(settings: &EmuSettings) {
+    apputils::add_toml(settings);
 }

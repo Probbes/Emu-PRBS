@@ -1,3 +1,5 @@
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::Application::gitutils;
@@ -7,8 +9,7 @@ use rfd::MessageDialog;
 
 #[component]
 pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
-    let s = settings.read();
-    let games = s.games.clone();
+    let games = settings.read().games.clone();
 
     rsx! {
         div {class:" bg-red-500 min-h-full flex flex-col",
@@ -17,19 +18,24 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
                 input { r#type:"range", min:"1", max:"10",}
             }
 
-            div { class: "flex-18 p-4 flex flex-wrap content-start",
-                for (key, val) in games {
-                        button {
-                        class: "bg-purple-300 w-40 h-40 m-5 pb-10",
-                        onclick: move |_| {
-                            play(settings, &key, &val);
-                        },
-                        "{key}",
-                    }
-                }
+            button {class:"flex-1 bg-red-400",
+                onclick: move |_| test(&*settings.read()),"Test"
             }
         }
     }
+}
+
+fn test(settings: &EmuSettings) {
+    let metadata = fs::metadata(
+        PathBuf::from(&settings.project_folder)
+            .join("Chrysocolle")
+            .join("Games")
+            .join("GBA")
+            .join("Advance Wars 2 - Black Hole Rising (USA, Australia).gba"),
+    )
+    .unwrap();
+
+    println!("{:?}", metadata);
 }
 
 fn play(settings: Signal<EmuSettings>, key: &String, val: &Game) {
