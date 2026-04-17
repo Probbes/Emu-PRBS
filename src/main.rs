@@ -34,7 +34,7 @@ enum Panel {
 struct EmuSettings {
     username: String,
     project_folder: PathBuf,
-    games: HashMap<String, Game>,
+    games: HashMap<u32, Game>,
     emulators: HashMap<String, Emulator>,
     git: EmuGit,
 }

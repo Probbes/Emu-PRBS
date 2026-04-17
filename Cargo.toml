@@ -9,6 +9,7 @@ name = "Chrysocolle"
 path = "src/main.rs"
 
 [dependencies]
+crc32fast = "1.5.0"
 dioxus = { version = "0.7.1", features = ["fullstack"] }
 dioxus-desktop = "0.7.3"
 fs-utils = "1.1.4"
