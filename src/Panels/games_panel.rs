@@ -1,88 +1,90 @@
+use std::collections::HashMap;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use crate::Application::gitutils;
-use crate::{EmuSettings, Game};
+use crate::Application::{apputils, gitutils};
+use crate::{EmuSettings, Emulator, Game};
 use crc32fast::Hasher;
-use dioxus::{prelude::*};
+use dioxus::fullstack::http::header::ValuesMut;
+use dioxus::html::u::height;
+use dioxus::prelude::*;
 use rfd::MessageDialog;
 
 #[component]
 pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
-
-    get_games(&*settings.read());
+    let mut value = use_signal(|| 5);
+    let is_editable = use_signal(|| false);
+    let game_buf = use_signal(|| Game::default());
+    let emulators = settings.read().emulators.clone(); //Cloning isn't too bad because emulators hashmap shouldn't be very big
 
     rsx! {
         div {class:" bg-red-500 min-h-full flex flex-col",
             div {class:"flex-1 bg-blue-400",
                 h1 { "Games" }
-                input { r#type:"range", min:"1", max:"10",}
+                input { r#type:"range", min:"3", max:"12", value:value(), oninput: move |event| {
+                    value.set(event.value().parse::<i32>().unwrap());
+                }}
             }
+            div{ class:"flex-10 flex flex-wrap justify-start content-start m-3",
+                {show_games(&settings.read(), value(), is_editable, game_buf)}
+            }
+        }
+        if is_editable() {
+            Edit_Component {emulators, is_editable, game_buf}
+        }
+    }
+}
 
-            button {class:"flex-1 bg-red-400",
-                onclick: move |_| show_games(&*settings.read()),"Test"
+// Come back here after emulator !!!!!!!!!!!!!!!!!!!!!!
+#[component]
+fn Edit_Component(emulators: HashMap<String, Emulator>, mut is_editable: Signal<bool>, game_buf: Signal<Game>) -> Element {
+    let mut emulator_option = String::new();
+    rsx! {
+        div { class:"absolute opacity-90 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-300 size-full",
+            div{ class: "absolute opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-orange-300 h-6/10 w-6/10",
+                "{game_buf.read().name}"
+                select { class:"",
+                    onchange: move |e| {
+                        emulator_option = e.value();
+                    },
+                    option { disabled: true, selected: true, "Choose the emulator" }
+                    for (key, val) in emulators.into_iter() {
+                        option { "{key}" }
+                    }
+                }
+                button { class:"", onclick: move |_| {is_editable.set(false);}, "Save and close"  }
+                button { class:"", onclick: move |_| {is_editable.set(false);}, "Close without saving"  }
             }
         }
     }
 }
 
-fn show_games(settings: &EmuSettings) {
-    for (key, val) in settings.games.iter() {
-        println!("name : {} - id : {}", key, val.name);
-    }
-}
+fn show_games(settings: &EmuSettings, value: i32, mut is_editable: Signal<bool>, mut game_buf: Signal<Game>) -> Element {
+    let s = settings.games.clone(); //Bad, I copy the entire games settings here
+    rsx! {
+        for (key, val) in s.into_iter() {
+            button {
+                key: "{key}",
+                style: "height: {value * 2}rem; width: {value * 2}rem;",
+                class:"bg-blue-500 group rounded-md m-1 relative",
+                onclick: {
+                    let name = val.name.clone();
+                    move |_| println!("{}", name)
+                },
+                "{val.name}"
 
-fn get_games(settings: &EmuSettings) {
-    let path = PathBuf::from(&settings.project_folder)
-            .join("Chrysocolle")
-            .join("Games");
-    let mut vec: Vec<(String, u32)> = Vec::new();
-    get_id(path, &mut vec);
-
-    for entry in vec.iter() {
-        println!("name : {} - id : {}", entry.0, entry.1);
-    }
-    
-    /* 
-    let file = File::open(path)
-            .join("GBA")
-            .join("Fire Emblem.gba"),).unwrap();
-    let mut reader = BufReader::new(file);
-    let mut hasher = Hasher::new();
-    let mut buffer = [0; 8192];
-
-    while let Ok(count) = reader.read(&mut buffer) {
-        if count == 0 { break; }
-        hasher.update(&buffer[..count]);
-    }
-    let finali = hasher.finalize();
-    println!("{:08x}", finali);
-    */
-}
-
-fn get_id (path: PathBuf, vec: &mut Vec<(String, u32)>) {
-    let folder_entries=  std::fs::read_dir(path).unwrap();
-    for folder_entry in folder_entries {
-        if let Ok(e) = folder_entry {
-            if let Ok(i) = e.file_type() {
-                if i.is_dir() {
-                    get_id(PathBuf::from(e.path()), vec);
-                }
-                else if i.is_file() {
-                    let file = File::open(e.path()).unwrap();
-                    let mut reader = BufReader::new(file).take(8 * 1024 * 1024);
-                    let mut hasher = Hasher::new();
-                    let mut buffer = [0; 8192];
-
-                    while let Ok(count) = reader.read(&mut buffer) {
-                        if count == 0 { break; }
-                        hasher.update(&buffer[..count]);
-                    }
-                    let finali = hasher.finalize();
-                    let name = e.file_name().to_string_lossy().into_owned();
-                    vec.push((name, finali));
+                button {
+                    class:"bg-purple-300 absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1",
+                    onclick: {
+                        move |e| {
+                            e.stop_propagation();
+                            game_buf.set(val.clone());
+                            is_editable.set(true);
+                        }
+                    },
+                    "Edit"
                 }
             }
         }

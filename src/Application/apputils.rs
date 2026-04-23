@@ -1,15 +1,21 @@
+use crc32fast::Hasher;
 use dioxus::{CapturedError, prelude::*};
 use fs_utils::copy::copy_directory;
 use rfd::FileDialog;
 use rfd::MessageDialog;
+use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::remove_dir_all;
 use std::fs::{self, DirBuilder, File};
+use std::io::BufReader;
+use std::io::Read;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
 use crate::EmuSettings;
+use crate::Emulator;
+use crate::Game;
 
 //TODO!!! Sync emulators name from the cloud (git pull gives emulators folders, get those names in the emulators Hashmap)
 
@@ -79,13 +85,13 @@ pub fn add_toml(settings: &EmuSettings) {
     };
 }
 
-pub fn pick_file() -> String {
+pub fn pick_file() -> PathBuf {
     let files = FileDialog::new().add_filter("*", &["*"]).set_directory("/").pick_file();
     match files {
-        Some(i) => i.into_os_string().into_string().unwrap_or(String::new()),
+        Some(i) => i,
         None => {
             println!("Error with the file");
-            String::new()
+            PathBuf::new()
         }
     }
 }
@@ -158,4 +164,53 @@ fn validate_safe_to_delete(target: &Path, base: &Path) -> Result<(), CapturedErr
     }
 
     Ok(())
+}
+
+pub fn get_games(settings: &mut EmuSettings) {
+    println!("GET GAMES");
+    let games = &mut settings.games;
+    let path = PathBuf::from(&settings.project_folder).join("Chrysocolle").join("Games");
+    get_id(path, games);
+    add_toml(settings);
+}
+
+//Recursive function that get the id of all game files inside a folder
+fn get_id(path: PathBuf, games: &mut HashMap<u32, Game>) {
+    match std::fs::read_dir(path) {
+        Ok(v) => {
+            for folder_entry in v {
+                if let Ok(e) = folder_entry {
+                    if let Ok(i) = e.file_type() {
+                        if i.is_dir() {
+                            get_id(PathBuf::from(e.path()), games);
+                        } else if i.is_file() {
+                            let file = File::open(e.path()).unwrap();
+                            let mut reader = BufReader::new(file).take(8 * 1024 * 1024);
+                            let mut hasher = Hasher::new();
+                            let mut buffer = [0; 8192];
+
+                            while let Ok(count) = reader.read(&mut buffer) {
+                                if count == 0 {
+                                    break;
+                                }
+                                hasher.update(&buffer[..count]);
+                            }
+                            let finali = hasher.finalize();
+                            let name = e.file_name().to_string_lossy().into_owned();
+                            games.insert(
+                                finali,
+                                Game {
+                                    name: name,
+                                    path: e.path(),
+                                    fullscreen: false,
+                                    emulator: Emulator::New(PathBuf::new()),
+                                },
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        Err(err) => show_error(&format!("Error while opening folder for games scanning : {}", err)),
+    };
 }

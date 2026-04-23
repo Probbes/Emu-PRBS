@@ -44,9 +44,9 @@ struct Game {
     name: String,
     path: PathBuf,
     fullscreen: bool,
-    emulator: String,
+    emulator: Emulator,
 }
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 enum Emulator {
     RetroArch {
         name: String,
@@ -59,8 +59,70 @@ enum Emulator {
         path: PathBuf,
         default_fullscreen: bool,
     },
-    #[default]
-    None,
+    New(PathBuf),
+}
+
+impl Default for Emulator {
+    fn default() -> Self {
+        Self::New(PathBuf::new())
+    }
+}
+
+impl Emulator {
+    fn get_name(&self) -> &str {
+        match self {
+            Emulator::RetroArch { name, .. } => name,
+            Emulator::Other { name, .. } => name,
+            Emulator::New(v) => v.to_str().unwrap_or("default"),
+        }
+    }
+    fn get_path(&self) -> &PathBuf {
+        match self {
+            Emulator::RetroArch { path, .. } => path,
+            Emulator::Other { path, .. } => path,
+            Emulator::New(path) => path,
+        }
+    }
+    fn get_fullscreen(&self) -> &bool {
+        match self {
+            Emulator::RetroArch { default_fullscreen, .. } => default_fullscreen,
+            Emulator::Other { default_fullscreen, .. } => default_fullscreen,
+            Emulator::New(..) => &false,
+        }
+    }
+    fn get_core(&self) -> PathBuf {
+        match self {
+            Emulator::RetroArch { core, .. } => core.clone(),
+            _ => PathBuf::new(),
+        }
+    }
+    fn set_name(&mut self, s: String) {
+        match self {
+            Emulator::RetroArch { name, .. } => *name = s,
+            Emulator::Other { name, .. } => *name = s,
+            _ => {}
+        }
+    }
+    fn set_path(&mut self, p: PathBuf) {
+        match self {
+            Emulator::RetroArch { path, .. } => *path = p,
+            Emulator::Other { path, .. } => *path = p,
+            Emulator::New(path) => *path = p,
+        }
+    }
+    fn set_fullscreen(&mut self, b: bool) {
+        match self {
+            Emulator::RetroArch { default_fullscreen, .. } => *default_fullscreen = b,
+            Emulator::Other { default_fullscreen, .. } => *default_fullscreen = b,
+            _ => {}
+        }
+    }
+    fn set_core(&mut self, p: PathBuf) {
+        match self {
+            Emulator::RetroArch { core, .. } => *core = p,
+            _ => {}
+        }
+    }
 }
 
 #[component]
@@ -71,11 +133,13 @@ fn App() -> Element {
 
     let mut show_folder_warning = use_signal(|| false);
 
-    use_hook(|| {
-        if !settings.read().project_folder.is_dir() {
+    use_effect(move || {
+        // .peek() does NOT trigger the effect to re-run when settings change
+        if !settings.peek().project_folder.is_dir() {
             show_folder_warning.set(true);
         } else {
-            //apputils::git_pull(settings); !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            // This will now only run once when the component mounts
+            apputils::get_games(&mut *settings.write());
         }
     });
 
@@ -124,6 +188,7 @@ fn App() -> Element {
                         settings.write().project_folder = picked_folder.clone();
                         apputils::add_toml(&settings.read());
                         apputils::create_app_space(Path::new(&picked_folder));
+                        apputils::get_games(&mut *settings.write());
                         show_folder_warning.set(false)
                     },"..."}
                 }

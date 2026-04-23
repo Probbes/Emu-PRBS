@@ -99,7 +99,7 @@ pub fn add_emu_to_repo(settings: &EmuSettings) -> Result<(), CapturedError> {
         let destination = match val {
             Emulator::RetroArch { path, .. } => path,
             Emulator::Other { path, .. } => path,
-            Emulator::None {} => PathBuf::new(),
+            Emulator::New(_) => PathBuf::new(),
         };
 
         apputils::overwrite_folder(&destination.to_path_buf(), &git_path)?
