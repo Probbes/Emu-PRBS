@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::{ffi::OsStr, path::PathBuf, process::Command};
 
 use dioxus::prelude::*;
 
@@ -47,7 +47,7 @@ enum EmuType {
 #[component]
 fn Edit_Component(settings: Signal<EmuSettings>, is_editable: Signal<bool>, emu_buf: Signal<EmuBuf>) -> Element {
     let mut emulator = use_signal(|| emu_buf.peek().emulator.clone());
-    let key = use_signal(|| emu_buf.read().key.clone());
+    let mut key = use_signal(|| emu_buf.read().key.clone());
 
     //input var
     let mut selected_type = use_signal(|| match &*emulator.read() {
@@ -80,14 +80,6 @@ fn Edit_Component(settings: Signal<EmuSettings>, is_editable: Signal<bool>, emu_
                         }
                     }
                     label { "Other Emulator" }
-                }
-                div {
-                    input { r#type: "radio", name: "emu", oninput: move |_| {
-                        selected_type.set(EmuType::New);
-                        emulator.set(Emulator::New(PathBuf::new()));
-                    }
-                }
-                    label { "No Emulator" }
                 }
 
                 //Core for retroarch emu
@@ -125,8 +117,9 @@ fn Edit_Component(settings: Signal<EmuSettings>, is_editable: Signal<bool>, emu_
 
                 //Quit
                 button { class:"", onclick: move |_| {
-                    if emu_buf.peek().key == String::from("New") {
-                        settings.write().emulators.remove("New");
+                    if key() != emulator.peek().get_name() {                //the key of the hash = name of emulator
+                        settings.write().emulators.remove(&key());          //if the name has changed, create new hash entry
+                        key.set(emulator.peek().get_name().to_string());    //and delete old one
                     }
                     settings.write().emulators.insert(key(), emulator());
                     apputils::add_toml(&settings.peek());
@@ -154,7 +147,7 @@ fn show_emulators(settings: &EmuSettings, mut is_editable: Signal<bool>, mut emu
                 class:"bg-blue-500 group size-60 rounded-md m-1 relative",
                 onclick: {
                     let val = val.clone();
-                    move |_| println!("{}", val.get_name())
+                    move |_| play_emulator(&val)
                 },"{val.get_name()}"
 
 
@@ -181,14 +174,32 @@ fn add_emulator(mut is_editable: Signal<bool>, mut emu_buf: Signal<EmuBuf>) {
         key: String::from("New"),
     });
     is_editable.set(true);
-    /*
-    let emulators = &mut settings.emulators;
-    let path = apputils::pick_file();
-    let name = match path.file_prefix() {
-        Some(n) => n,
-        None => &OsStr::new(""),
-    };
-    let name = name.to_string_lossy().into_owned();
-    emulators.insert(name, Emulator::New(path));
-    */
+}
+
+fn play_emulator (emulator: &Emulator) {
+    match emulator {
+        Emulator::RetroArch {path, core , ..} =>{
+            let status = Command::new(path)
+            .arg("-L")
+            .arg(core) 
+            //.arg(rom_path)
+            //.arg("-f") // Optional: Start in Fullscreen
+            .spawn(); 
+
+            match status {
+                Ok(_) => println!("RetroArch launched successfully!"),
+                Err(e) => eprintln!("Failed to launch RetroArch: {}", e),
+            }
+        }
+        Emulator::Other { path, ..} => {
+            let status = Command::new(path)
+            .arg("-L")
+            .spawn();
+            match status {
+                Ok(_) => println!("Emulator launched successfully!"),
+                Err(e) => eprintln!("Failed to launch Emulator: {}", e),
+            }
+        }
+        _ => println!("tant pis"),
+    }
 }

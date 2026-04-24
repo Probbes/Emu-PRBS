@@ -43,7 +43,7 @@ fn Edit_Component(emulators: HashMap<String, Emulator>, mut is_editable: Signal<
     let mut emulator_option = String::new();
     rsx! {
         div { class:"absolute opacity-90 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-300 size-full",
-            div{ class: "absolute opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-orange-300 h-6/10 w-6/10",
+            div{ class: "absolute opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-orange-300 h-6/10 w-6/10 flex flex-col mt-1",
                 "{game_buf.read().name}"
                 select { class:"",
                     onchange: move |e| {
@@ -73,7 +73,7 @@ fn show_games(settings: &EmuSettings, value: i32, mut is_editable: Signal<bool>,
                     let name = val.name.clone();
                     move |_| println!("{}", name)
                 },
-                "{val.name}"
+                "{val.name} \n {val.emulator.get_name()}"
 
                 button {
                     class:"bg-purple-300 absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1",
