@@ -39,12 +39,13 @@ struct EmuSettings {
     git: EmuGit,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
 struct Game {
     name: String,
+    extension: String,
     path: PathBuf,
     fullscreen: bool,
-    emulator: Emulator,
+    emulator: String,
 }
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 enum Emulator {

@@ -14,7 +14,6 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use crate::EmuSettings;
-use crate::Emulator;
 use crate::Game;
 
 //TODO!!! Sync emulators name from the cloud (git pull gives emulators folders, get those names in the emulators Hashmap)
@@ -196,16 +195,14 @@ fn get_id(path: PathBuf, games: &mut HashMap<u32, Game>) {
                                 hasher.update(&buffer[..count]);
                             }
                             let finali = hasher.finalize();
-                            let name = e.file_name().to_string_lossy().into_owned();
-                            games.insert(
-                                finali,
-                                Game {
-                                    name: name,
-                                    path: e.path(),
-                                    fullscreen: false,
-                                    emulator: Emulator::New(PathBuf::new()),
-                                },
-                            );
+                            games.entry(finali).or_insert(Game {
+                                name: e.path().file_prefix().unwrap_or_default().to_string_lossy().into_owned(),
+                                extension: e.path().extension().unwrap_or_default().to_string_lossy().into_owned(),
+                                path: e.path(),
+                                fullscreen: false,
+                                emulator: String::new(),
+                            });
+                            //todo : remove if file not anymore (but keep save)
                         }
                     }
                 }
