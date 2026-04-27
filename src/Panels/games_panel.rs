@@ -13,7 +13,8 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
     let mut value = use_signal(|| 5);
     let is_editable = use_signal(|| false);
     let game_buf = use_signal(|| GameBuf::default());
-    let emulators = settings.read().emulators.clone(); //Cloning isn't too bad because emulators hashmap shouldn't be very big
+    let emulators = settings.read().emulators.clone();
+    let sortingmethod = use_signal(|| SortMethod::ByName);
     
 
     rsx! {
@@ -23,9 +24,10 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
                 input { r#type:"range", min:"3", max:"12", value:value(), oninput: move |event| {
                     value.set(event.value().parse::<i32>().unwrap());
                 }}
+                //select {class:"", value: *sortingmethod.read(), onchange: move |e| sortingmethod.set(e) }
             }
             div{ class:"flex-10 flex flex-wrap justify-start content-start m-3",
-                {show_games(settings, value(), is_editable, game_buf)}
+                {show_games(settings, value(), is_editable, game_buf, sortingmethod)}
             }
         }
         if is_editable() {
@@ -59,7 +61,6 @@ fn Edit_Component(
                     onchange: move |e| {
                         emulator_option.set(e.value());
                         game.write().emulator = e.value();
-                        apputils::add_toml(&settings.read());
                     },
                     option { disabled: true, value: "", "Choose the emulator" }
                     for (key, _val) in emulators.into_iter() {
@@ -78,9 +79,20 @@ fn Edit_Component(
     }
 }
 
-fn show_games(settings: Signal<EmuSettings>, value: i32, is_editable: Signal<bool>, game_buf: Signal<GameBuf>) -> Element {
+enum SortMethod {
+    ByName,
+    ByExtension,
+    ByFolder,
+}
+
+fn show_games(settings: Signal<EmuSettings>, value: i32, is_editable: Signal<bool>, game_buf: Signal<GameBuf>, sorting_method: Signal<SortMethod>) -> Element {
     let raw_keys: Vec<u32> = settings.read().games.keys().copied().collect();
-    let vec = sort_by_extension(settings, raw_keys);
+
+    let vec = match *sorting_method.read() {
+        SortMethod::ByName => {sort_by_name(settings, raw_keys)},
+        SortMethod::ByExtension => {sort_by_extension(settings, raw_keys)},
+        SortMethod::ByFolder => {sort_by_folder(settings, raw_keys)}
+    };
 
     rsx! {
         for key in vec {
@@ -103,6 +115,19 @@ fn sort_by_name(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
 }
 
 fn sort_by_extension(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
+    let settings_read = settings.read();
+
+    vec.sort_by(|a, b| {
+        let name_a = settings_read.games.get(a).map(|g| g.extension.to_lowercase()).unwrap_or_default();
+        let name_b = settings_read.games.get(b).map(|g| g.extension.to_lowercase()).unwrap_or_default();
+
+        name_a.cmp(&name_b)
+    });
+
+    vec
+}
+
+fn sort_by_folder(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
     let settings_read = settings.read();
 
     vec.sort_by(|a, b| {
