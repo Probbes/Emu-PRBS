@@ -1,12 +1,11 @@
 use std::collections::HashMap;
-use std::fs::{self, File};
-use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::Command;
 
 use crate::Application::{apputils, gitutils};
 use crate::{EmuSettings, Emulator, Game};
 use dioxus::prelude::*;
+use rfd::MessageDialog;
 
 #[component]
 pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
@@ -15,7 +14,6 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
     let game_buf = use_signal(|| GameBuf::default());
     let emulators = settings.read().emulators.clone();
     let mut sortingmethod = use_signal(|| SortMethod::ByName);
-    
 
     rsx! {
         div {class:" bg-red-500 min-h-full flex flex-col",
@@ -96,13 +94,19 @@ enum SortMethod {
     ByFolder,
 }
 
-fn show_games(settings: Signal<EmuSettings>, value: i32, is_editable: Signal<bool>, game_buf: Signal<GameBuf>, sorting_method: Signal<SortMethod>) -> Element {
+fn show_games(
+    settings: Signal<EmuSettings>,
+    value: i32,
+    is_editable: Signal<bool>,
+    game_buf: Signal<GameBuf>,
+    sorting_method: Signal<SortMethod>,
+) -> Element {
     let raw_keys: Vec<u32> = settings.read().games.keys().copied().collect();
 
     let vec = match *sorting_method.read() {
-        SortMethod::ByName => {sort_by_name(settings, raw_keys)},
-        SortMethod::ByExtension => {sort_by_extension(settings, raw_keys)},
-        SortMethod::ByFolder => {sort_by_folder(settings, raw_keys)}
+        SortMethod::ByName => sort_by_name(settings, raw_keys),
+        SortMethod::ByExtension => sort_by_extension(settings, raw_keys),
+        SortMethod::ByFolder => sort_by_folder(settings, raw_keys),
     };
 
     //Should it shows games not present in folder but present in toml ?
@@ -202,8 +206,23 @@ fn game_button(
 
 fn play(settings: Signal<EmuSettings>, val: Game) {
     let game_path = &val.path;
+    match gitutils::add_repo_to_emu(&*settings.read(), &val.emulator) {
+        Ok(()) => {
+            launch_game(settings, &val.emulator, game_path);
+        }
+        Err(err) => {
+            MessageDialog::new()
+                .set_title("Error")
+                .set_description(err.to_string())
+                .set_buttons(rfd::MessageButtons::Ok)
+                .set_level(rfd::MessageLevel::Error)
+                .show();
+        }
+    }
+}
 
-    if let Some(emulator) = settings.read().emulators.get(&val.emulator) {
+fn launch_game(settings: Signal<EmuSettings>, emulator_name: &String, game_path: &PathBuf) {
+    if let Some(emulator) = settings.read().emulators.get(emulator_name) {
         match emulator {
             Emulator::RetroArch { path, core, .. } => {
                 let status = Command::new(path)
@@ -232,28 +251,4 @@ fn play(settings: Signal<EmuSettings>, val: Game) {
             }
         }
     }
-
-
-    match gitutils::add_repo_to_emu(&*settings.read(), key.clone(), val.clone()) {
-        Ok(()) => {
-            let status = Command::new(path).spawn();
-
-            match status {
-                Ok(_) => println!("Game launched successfully!"),
-                Err(e) => eprintln!("Failed to launch RetroArch: {}", e),
-            }
-        }
-        Err(err) => {
-            MessageDialog::new()
-                .set_title("Error")
-                .set_description(err.to_string())
-                .set_buttons(rfd::MessageButtons::Ok)
-                .set_level(rfd::MessageLevel::Error)
-                .show();
-        }
-    }
-}
-
-fn move_save() {
-    
 }

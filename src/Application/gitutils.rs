@@ -5,9 +5,9 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
-use crate::EmuSettings;
-use crate::Emulator;
 use crate::apputils;
+
+use crate::Application::settings::*;
 
 //pull if .git present at the directory used for git
 pub fn git_pull(settings: &EmuSettings) {
@@ -16,6 +16,8 @@ pub fn git_pull(settings: &EmuSettings) {
 
     let full_repo_path = PathBuf::from(repo_dir).join(repo_name);
     let git_dir = full_repo_path.join(".git");
+
+    println!("repo_path : {:?}", git_dir);
 
     if !git_dir.exists() {
         MessageDialog::new()
@@ -40,8 +42,9 @@ pub fn git_push(settings: &EmuSettings) {
     let repo_dir = settings.git.get_directory();
     let repo_name = settings.git.get_repo_name();
 
-    let repo_path = PathBuf::from(repo_dir).join(repo_name).join(".git");
+    let repo_path = PathBuf::from(repo_dir).join(repo_name);
 
+    println!("{:?}", repo_path);
     let output = Command::new("git")
         .args(["add", "."])
         .current_dir(&repo_path)
@@ -61,7 +64,7 @@ pub fn git_push(settings: &EmuSettings) {
 }
 
 //Add repository save files to the emulator
-pub fn add_repo_to_emu(settings: &EmuSettings, emulator_name: &String, emulator_path: &PathBuf) -> Result<(), CapturedError> {
+pub fn add_repo_to_emu(settings: &EmuSettings, emulator_name: &String) -> Result<(), CapturedError> {
     let git_path = Path::new(settings.git.get_directory())
         .join(settings.git.get_repo_name())
         .join(emulator_name);
@@ -71,14 +74,26 @@ pub fn add_repo_to_emu(settings: &EmuSettings, emulator_name: &String, emulator_
         Err(_) => println!("Folder already exists"),
     }
 
-    let destination = emulator_path;
-    if let Some(dest_parent) = destination.parent() {
-        if let Some(source_name) = destination.file_name() {
-            apputils::overwrite_folder(&git_path.join(source_name), dest_parent)?;
+    let emulator_save_path = match settings.emulators.get(emulator_name) {
+        Some(emulator) => emulator.get_save_path(),
+        None => {
+            return Err(CapturedError::msg(
+                "Error occured while adding repository save files to emulator : Can't get the save path of the emulator",
+            ));
         }
+    };
+    println!("{:?}", emulator_save_path);
+    if let Some(dest_parent) = emulator_save_path.parent() {
+        if let Some(source_name) = emulator_save_path.file_name() {
+            println!("overwrite_folder({:?} - {:?})", &git_path.join(source_name), dest_parent);
+            apputils::overwrite_folder(&git_path.join(source_name), dest_parent)?;
+            Ok(())
+        } else {
+            return Err(CapturedError::msg("Error occured while getting the final component of path"));
+        }
+    } else {
+        return Err(CapturedError::msg("Error occured while getting the parent of the directory"));
     }
-
-    Ok(())
 }
 
 //Add emulators saves files to repository files to be pushed
@@ -96,12 +111,8 @@ pub fn add_emu_to_repo(settings: &EmuSettings) -> Result<(), CapturedError> {
             Err(_) => println!("Folder already exists"),
         }
 
-        let destination = match val {
-            Emulator::RetroArch { path, .. } => path,
-            Emulator::Other { path, .. } => path,
-            Emulator::New(_) => PathBuf::new(),
-        };
-
+        let destination = val.get_save_path();
+        println!("overwrite_folder({:?} - {:?})", &destination.to_path_buf(), &git_path);
         apputils::overwrite_folder(&destination.to_path_buf(), &git_path)?
     }
 

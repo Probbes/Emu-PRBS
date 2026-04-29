@@ -2,9 +2,7 @@
 
 use dioxus::prelude::*;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 const MAIN_CSS: &str = include_str!("../assets/styling/main.css");
 const TAILWIND_CSS: &str = include_str!("../assets/tailwind.css");
@@ -15,8 +13,7 @@ mod Panels;
 
 mod Application;
 use crate::{Application::apputils, Application::gitutils};
-
-use crate::Panels::EmuGit;
+use Application::settings::*;
 
 fn main() {
     dioxus::launch(App);
@@ -30,118 +27,6 @@ enum Panel {
     Settings,
 }
 
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
-struct EmuSettings {
-    username: String,
-    project_folder: PathBuf,
-    games: HashMap<u32, Game>,
-    emulators: HashMap<String, Emulator>,
-    git: EmuGit,
-}
-
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
-struct Game {
-    name: String,
-    extension: String,
-    path: PathBuf,
-    fullscreen: bool,
-    emulator: String,
-}
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
-enum Emulator {
-    RetroArch {
-        name: String,
-        path: PathBuf,
-        default_fullscreen: bool,
-        save_path: PathBuf,
-        core: PathBuf,
-    },
-    Other {
-        name: String,
-        path: PathBuf,
-        default_fullscreen: bool,
-        save_path: PathBuf,
-    },
-    New(PathBuf),
-}
-
-impl Default for Emulator {
-    fn default() -> Self {
-        Self::New(PathBuf::new())
-    }
-}
-
-impl Emulator {
-    fn get_name(&self) -> &str {
-        match self {
-            Emulator::RetroArch { name, .. } => name,
-            Emulator::Other { name, .. } => name,
-            Emulator::New(v) => v.to_str().unwrap_or("default"),
-        }
-    }
-    fn get_path(&self) -> &PathBuf {
-        match self {
-            Emulator::RetroArch { path, .. } => path,
-            Emulator::Other { path, .. } => path,
-            Emulator::New(path) => path,
-        }
-    }
-    fn get_fullscreen(&self) -> &bool {
-        match self {
-            Emulator::RetroArch { default_fullscreen, .. } => default_fullscreen,
-            Emulator::Other { default_fullscreen, .. } => default_fullscreen,
-            Emulator::New(..) => &false,
-        }
-    }
-    fn get_core(&self) -> PathBuf {
-        match self {
-            Emulator::RetroArch { core, .. } => core.clone(),
-            _ => PathBuf::new(),
-        }
-    }
-    fn get_save_path(&self) -> PathBuf {
-        match self {
-            Emulator::RetroArch { save_path , ..} => save_path.clone(),
-            Emulator::Other { save_path , ..} => save_path.clone(),
-            _ => PathBuf::new(),
-        }
-    }
-    fn set_name(&mut self, s: String) {
-        match self {
-            Emulator::RetroArch { name, .. } => *name = s,
-            Emulator::Other { name, .. } => *name = s,
-            _ => {}
-        }
-    }
-    fn set_path(&mut self, p: PathBuf) {
-        match self {
-            Emulator::RetroArch { path, .. } => *path = p,
-            Emulator::Other { path, .. } => *path = p,
-            Emulator::New(path) => *path = p,
-        }
-    }
-    fn set_fullscreen(&mut self, b: bool) {
-        match self {
-            Emulator::RetroArch { default_fullscreen, .. } => *default_fullscreen = b,
-            Emulator::Other { default_fullscreen, .. } => *default_fullscreen = b,
-            _ => {}
-        }
-    }
-    fn set_core(&mut self, p: PathBuf) {
-        match self {
-            Emulator::RetroArch { core, .. } => *core = p,
-            _ => {}
-        }
-    }
-    fn set_save_path(&mut self, p: PathBuf) {
-        match self {
-            Emulator::RetroArch {save_path, ..} => *save_path = p,
-            Emulator::Other { save_path, .. } => *save_path = p,
-            _ => {}
-        }
-    }
-}
-
 #[component]
 fn App() -> Element {
     let panel = use_signal(|| Panel::Games);
@@ -151,11 +36,10 @@ fn App() -> Element {
     let mut show_folder_warning = use_signal(|| false);
 
     use_effect(move || {
-        // .peek() does NOT trigger the effect to re-run when settings change
         if !settings.peek().project_folder.is_dir() {
             show_folder_warning.set(true);
         } else {
-            // This will now only run once when the component mounts
+            //gitutils::git_pull(&*settings.peek());
             apputils::get_games(&mut *settings.write());
         }
     });
@@ -202,9 +86,10 @@ fn App() -> Element {
                     "Folder of the app containing the settings file was not found. Please select the folder where settings.toml should be :"
                     button { class:"", onclick: move |_| {
                         let picked_folder = apputils::pick_folder();
-                        settings.write().project_folder = picked_folder.clone();
+                        settings.write().project_folder = picked_folder.join("Chrysocolle");
                         apputils::add_toml(&settings.read());
                         apputils::create_app_space(Path::new(&picked_folder));
+                        settings.write().git.set_directory(picked_folder.join("Saves"));
                         apputils::get_games(&mut *settings.write());
                         show_folder_warning.set(false)
                     },"..."}
@@ -244,7 +129,6 @@ fn quit(settings: Signal<EmuSettings>) {
         .show();
 
     if confirm == MessageDialogResult::Yes {
-        window.close();
         match gitutils::add_emu_to_repo(&*settings.read()) {
             Ok(()) => println!("successful"),
             Err(err) => {
@@ -252,5 +136,6 @@ fn quit(settings: Signal<EmuSettings>) {
             }
         }
         gitutils::git_push(&*settings.read());
+        window.close();
     }
 }

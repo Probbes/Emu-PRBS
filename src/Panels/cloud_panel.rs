@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use dioxus::prelude::*;
-use serde::{Deserialize, Serialize};
 
 use crate::{Application::apputils, Application::gitutils, EmuSettings};
 
@@ -14,9 +13,9 @@ pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
          div { "Repository: "
             input {
                 r#type: "text",
-                value: s.git.repo_name.as_str(),
+                value: s.git.get_repo_name(),
                 oninput: move |e| {
-                    settings.with_mut(|s| s.git.repo_name = e.value());
+                    settings.with_mut(|s| s.git.set_repo_name(e.value()));
                 },
             }
         }
@@ -25,12 +24,12 @@ pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
             input {
                 r#type: "text",
                 size:"40",
-                value: s.git.directory.to_string_lossy().into_owned(),  //WTH is a Cow ?
+                value: s.git.get_directory().to_string_lossy().into_owned(),  //WTH is a Cow ?
                 oninput: move |e| {
-                    settings.with_mut(|s| s.git.directory = PathBuf::from(e.value()));
+                    settings.with_mut(|s| s.git.set_directory(PathBuf::from(e.value())));
                 },
             }
-            button { onclick: move |_| {settings.with_mut(|s| {s.git.directory = apputils::pick_folder();});}, "..." }
+            button { onclick: move |_| {settings.with_mut(|s| {s.git.set_directory( apputils::pick_folder());});}, "..." }
         }
         button { onclick: move |_| apply_settings(&*settings.read()), "Apply Settings" }
         button { onclick: move |_| {
@@ -44,21 +43,6 @@ pub fn Cloud_Component(settings: Signal<EmuSettings>) -> Element {
         div {
             div {"Output: "}
         }
-    }
-}
-
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
-pub struct EmuGit {
-    repo_name: String,
-    directory: PathBuf,
-}
-
-impl EmuGit {
-    pub fn get_directory(&self) -> &PathBuf {
-        &self.directory
-    }
-    pub fn get_repo_name(&self) -> &str {
-        &self.repo_name
     }
 }
 

@@ -3,7 +3,6 @@ use dioxus::{CapturedError, prelude::*};
 use fs_utils::copy::copy_directory;
 use rfd::FileDialog;
 use rfd::MessageDialog;
-use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs::remove_dir_all;
 use std::fs::{self, DirBuilder, File};
@@ -61,6 +60,7 @@ pub fn create_app_space(path: &Path) {
     let root = &path.join("Chrysocolle");
     create_folder(root);
     create_folder(&root.join("Games"));
+    create_folder(&root.join("Saves"));
 }
 
 pub fn add_toml(settings: &EmuSettings) {
@@ -166,9 +166,9 @@ fn validate_safe_to_delete(target: &Path, base: &Path) -> Result<(), CapturedErr
 }
 
 pub fn get_games(settings: &mut EmuSettings) {
-    println!("GET GAMES");
+    println!("get games");
     let games = &mut settings.games;
-    let path = PathBuf::from(&settings.project_folder).join("Chrysocolle").join("Games");
+    let path = PathBuf::from(&settings.project_folder).join("Games");
     let mut ids_vec: Vec<(u32, PathBuf)> = Vec::new();
     get_all_ids(path, &mut ids_vec);
 
