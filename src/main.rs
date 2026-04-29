@@ -53,12 +53,14 @@ enum Emulator {
         name: String,
         path: PathBuf,
         default_fullscreen: bool,
+        save_path: PathBuf,
         core: PathBuf,
     },
     Other {
         name: String,
         path: PathBuf,
         default_fullscreen: bool,
+        save_path: PathBuf,
     },
     New(PathBuf),
 }
@@ -97,6 +99,13 @@ impl Emulator {
             _ => PathBuf::new(),
         }
     }
+    fn get_save_path(&self) -> PathBuf {
+        match self {
+            Emulator::RetroArch { save_path , ..} => save_path.clone(),
+            Emulator::Other { save_path , ..} => save_path.clone(),
+            _ => PathBuf::new(),
+        }
+    }
     fn set_name(&mut self, s: String) {
         match self {
             Emulator::RetroArch { name, .. } => *name = s,
@@ -121,6 +130,13 @@ impl Emulator {
     fn set_core(&mut self, p: PathBuf) {
         match self {
             Emulator::RetroArch { core, .. } => *core = p,
+            _ => {}
+        }
+    }
+    fn set_save_path(&mut self, p: PathBuf) {
+        match self {
+            Emulator::RetroArch {save_path, ..} => *save_path = p,
+            Emulator::Other { save_path, .. } => *save_path = p,
             _ => {}
         }
     }

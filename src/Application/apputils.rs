@@ -169,39 +169,35 @@ pub fn get_games(settings: &mut EmuSettings) {
     println!("GET GAMES");
     let games = &mut settings.games;
     let path = PathBuf::from(&settings.project_folder).join("Chrysocolle").join("Games");
-    get_id(path, games);
+    let mut ids_vec: Vec<(u32, PathBuf)> = Vec::new();
+    get_all_ids(path, &mut ids_vec);
+
+    for (key, path) in ids_vec.iter() {
+        games.entry(*key).or_insert(Game {
+            name: path.file_prefix().unwrap_or_default().to_string_lossy().into_owned(),
+            extension: path.extension().unwrap_or_default().to_string_lossy().into_owned(),
+            path: path.clone(),
+            fullscreen: false,
+            emulator: String::new(),
+        });
+    }
+
     add_toml(settings);
 }
 
 //Recursive function that get the id of all game files inside a folder
-fn get_id(path: PathBuf, games: &mut HashMap<u32, Game>) {
+fn get_all_ids(path: PathBuf, vec: &mut Vec<(u32, PathBuf)>) {
     match std::fs::read_dir(path) {
         Ok(v) => {
             for folder_entry in v {
                 if let Ok(e) = folder_entry {
                     if let Ok(i) = e.file_type() {
                         if i.is_dir() {
-                            get_id(PathBuf::from(e.path()), games);
+                            get_all_ids(PathBuf::from(e.path()), vec);
                         } else if i.is_file() {
                             let file = File::open(e.path()).unwrap();
-                            let mut reader = BufReader::new(file).take(8 * 1024 * 1024);
-                            let mut hasher = Hasher::new();
-                            let mut buffer = [0; 8192];
-
-                            while let Ok(count) = reader.read(&mut buffer) {
-                                if count == 0 {
-                                    break;
-                                }
-                                hasher.update(&buffer[..count]);
-                            }
-                            let finali = hasher.finalize();
-                            games.entry(finali).or_insert(Game {
-                                name: e.path().file_prefix().unwrap_or_default().to_string_lossy().into_owned(),
-                                extension: e.path().extension().unwrap_or_default().to_string_lossy().into_owned(),
-                                path: e.path(),
-                                fullscreen: false,
-                                emulator: String::new(),
-                            });
+                            let finali = get_id(file);
+                            vec.push((finali, e.path()));
                             //todo : remove if file not anymore (but keep save)
                         }
                     }
@@ -210,4 +206,18 @@ fn get_id(path: PathBuf, games: &mut HashMap<u32, Game>) {
         }
         Err(err) => show_error(&format!("Error while opening folder for games scanning : {}", err)),
     };
+}
+
+fn get_id(file: File) -> u32 {
+    let mut reader = BufReader::new(file).take(8 * 1024 * 1024);
+    let mut hasher = Hasher::new();
+    let mut buffer = [0; 8192];
+
+    while let Ok(count) = reader.read(&mut buffer) {
+        if count == 0 {
+            break;
+        }
+        hasher.update(&buffer[..count]);
+    }
+    hasher.finalize()
 }

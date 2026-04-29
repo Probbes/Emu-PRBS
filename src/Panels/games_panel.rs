@@ -14,7 +14,7 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
     let is_editable = use_signal(|| false);
     let game_buf = use_signal(|| GameBuf::default());
     let emulators = settings.read().emulators.clone();
-    let sortingmethod = use_signal(|| SortMethod::ByName);
+    let mut sortingmethod = use_signal(|| SortMethod::ByName);
     
 
     rsx! {
@@ -24,7 +24,18 @@ pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
                 input { r#type:"range", min:"3", max:"12", value:value(), oninput: move |event| {
                     value.set(event.value().parse::<i32>().unwrap());
                 }}
-                //select {class:"", value: *sortingmethod.read(), onchange: move |e| sortingmethod.set(e) }
+                select {class:"", value: "name", onchange: move |e| {
+                    match e.value().as_str() {
+                        "name" => sortingmethod.set(SortMethod::ByName),
+                        "extension" => sortingmethod.set(SortMethod::ByExtension),
+                        "folder" => sortingmethod.set(SortMethod::ByFolder),
+                        _ => sortingmethod.set(SortMethod::ByName),
+                    }
+                },
+                    option {value: "name", "Name"  }
+                    option {value: "extension", "Extension"  }
+                    option {value: "folder", "Folder"  }
+                }
             }
             div{ class:"flex-10 flex flex-wrap justify-start content-start m-3",
                 {show_games(settings, value(), is_editable, game_buf, sortingmethod)}
@@ -94,6 +105,7 @@ fn show_games(settings: Signal<EmuSettings>, value: i32, is_editable: Signal<boo
         SortMethod::ByFolder => {sort_by_folder(settings, raw_keys)}
     };
 
+    //Should it shows games not present in folder but present in toml ?
     rsx! {
         for key in vec {
             { game_button(settings, value, is_editable, game_buf, key) }
@@ -127,6 +139,7 @@ fn sort_by_extension(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u3
     vec
 }
 
+//todo
 fn sort_by_folder(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
     let settings_read = settings.read();
 
@@ -220,9 +233,8 @@ fn play(settings: Signal<EmuSettings>, val: Game) {
         }
     }
 
-    /*
 
-    match gitutils::add_repo_to_emu(settings, key.clone(), val.clone()) {
+    match gitutils::add_repo_to_emu(&*settings.read(), key.clone(), val.clone()) {
         Ok(()) => {
             let status = Command::new(path).spawn();
 
@@ -240,5 +252,8 @@ fn play(settings: Signal<EmuSettings>, val: Game) {
                 .show();
         }
     }
-     */
+}
+
+fn move_save() {
+    
 }

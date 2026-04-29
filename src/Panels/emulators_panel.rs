@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::{ffi::OsStr, path::PathBuf, process::Command};
 
 use dioxus::prelude::*;
 
@@ -67,7 +67,7 @@ fn Edit_Component(settings: Signal<EmuSettings>, is_editable: Signal<bool>, emu_
                     input {r#type: "radio", name: "emu", checked: selected_type() == EmuType::RetroArch,
                         oninput: move |_| {
                             selected_type.set(EmuType::RetroArch);
-                            emulator.set(Emulator::RetroArch { name: key(), path: PathBuf::new(), default_fullscreen: false, core: PathBuf::new() });
+                            emulator.set(Emulator::RetroArch { name: key(), path: PathBuf::new(), default_fullscreen: false, core: PathBuf::new(), save_path: PathBuf::new() });
                         }
                     }
                     label { "RetroArch" }
@@ -76,7 +76,7 @@ fn Edit_Component(settings: Signal<EmuSettings>, is_editable: Signal<bool>, emu_
                     input {r#type: "radio", name: "emu", checked: selected_type() == EmuType::Other,
                         oninput: move |_| {
                             selected_type.set(EmuType::Other);
-                            emulator.set(Emulator::Other { name: key(), path: PathBuf::new(), default_fullscreen: false });
+                            emulator.set(Emulator::Other { name: key(), path: PathBuf::new(), default_fullscreen: false , save_path: PathBuf::new()});
                         }
                     }
                     label { "Other Emulator" }
@@ -102,6 +102,12 @@ fn Edit_Component(settings: Signal<EmuSettings>, is_editable: Signal<bool>, emu_
                 div {class:"flex",
                     "Path of the emulator : {emulator.peek().get_path().to_string_lossy()} : "
                     button {class: "", onclick: move |_| {emulator.write().set_path(apputils::pick_file());}, "..."  }
+                }
+
+                //SavePath
+                div {class:"flex",
+                    "Save path of the emulator : {emulator.peek().get_save_path().to_string_lossy()} : "
+                    button {class: "", onclick: move |_| {emulator.write().set_save_path(apputils::pick_file());}, "..."  }
                 }
 
                 //Fullscreen
@@ -176,23 +182,25 @@ fn add_emulator(mut is_editable: Signal<bool>, mut emu_buf: Signal<EmuBuf>) {
     is_editable.set(true);
 }
 
-fn play_emulator(emulator: &Emulator) {
+fn play_emulator (emulator: &Emulator) {
     match emulator {
-        Emulator::RetroArch { path, core, .. } => {
+        Emulator::RetroArch {path, core , ..} => {
             let status = Command::new(path)
-                .arg("-L")
-                .arg(core)
-                //.arg(rom_path)
-                //.arg("-f") // Optional: Start in Fullscreen
-                .spawn();
+            .arg("-L")
+            .arg(core) 
+            //.arg(rom_path)
+            //.arg("-f") // Optional: Start in Fullscreen
+            .spawn(); 
 
             match status {
                 Ok(_) => println!("RetroArch launched successfully!"),
                 Err(e) => eprintln!("Failed to launch RetroArch: {}", e),
             }
         }
-        Emulator::Other { path, .. } => {
-            let status = Command::new(path).arg("-L").spawn();
+        Emulator::Other { path, ..} => {
+            let status = Command::new(path)
+            .arg("-L")
+            .spawn();
             match status {
                 Ok(_) => println!("Emulator launched successfully!"),
                 Err(e) => eprintln!("Failed to launch Emulator: {}", e),
