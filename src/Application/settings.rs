@@ -2,13 +2,32 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Clone, PartialEq)]
 pub struct EmuSettings {
     pub username: String,
+    pub game_size: u8,
+    pub emu_size: u8,
     pub project_folder: PathBuf,
+    pub pure_name: bool,
     pub games: HashMap<u32, Game>,
     pub emulators: HashMap<String, Emulator>,
     pub git: EmuGit,
+}
+
+impl Default for EmuSettings {
+    fn default() -> Self {
+        Self {
+            game_size: 5,
+            emu_size: 5,
+
+            username: Default::default(),
+            project_folder: Default::default(),
+            pure_name: Default::default(),
+            games: Default::default(),
+            emulators: Default::default(),
+            git: Default::default(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq, Debug)]
@@ -26,6 +45,7 @@ pub enum Emulator {
         path: PathBuf,
         default_fullscreen: bool,
         save_path: PathBuf,
+        git_path: PathBuf,
         core: PathBuf,
     },
     Other {
@@ -33,6 +53,7 @@ pub enum Emulator {
         path: PathBuf,
         default_fullscreen: bool,
         save_path: PathBuf,
+        git_path: PathBuf,
     },
     New(PathBuf),
 }
@@ -48,7 +69,7 @@ impl Emulator {
         match self {
             Emulator::RetroArch { name, .. } => name,
             Emulator::Other { name, .. } => name,
-            Emulator::New(v) => v.to_str().unwrap_or("default"),
+            Emulator::New(_v) => "New Emulator",
         }
     }
     pub fn get_path(&self) -> &PathBuf {
@@ -75,6 +96,13 @@ impl Emulator {
         match self {
             Emulator::RetroArch { save_path, .. } => save_path.clone(),
             Emulator::Other { save_path, .. } => save_path.clone(),
+            _ => PathBuf::new(),
+        }
+    }
+    pub fn get_git_path(&self) -> PathBuf {
+        match self {
+            Emulator::RetroArch { git_path, .. } => git_path.clone(),
+            Emulator::Other { git_path, .. } => git_path.clone(),
             _ => PathBuf::new(),
         }
     }
@@ -112,12 +140,20 @@ impl Emulator {
             _ => {}
         }
     }
+    pub fn set_git_path(&mut self, p: PathBuf) {
+        match self {
+            Emulator::RetroArch { git_path, .. } => *git_path = p,
+            Emulator::Other { git_path, .. } => *git_path = p,
+            _ => {}
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, PartialEq)]
 pub struct EmuGit {
     repo_name: String,
     directory: PathBuf,
+    save_dir: HashMap<String, PathBuf>,
 }
 
 impl EmuGit {
@@ -132,5 +168,14 @@ impl EmuGit {
     }
     pub fn set_repo_name(&mut self, s: String) {
         self.repo_name = s;
+    }
+    pub fn get_save_dir(&self) -> &HashMap<String, PathBuf> {
+        &self.save_dir
+    }
+    pub fn set_save_dir(&mut self, hash: HashMap<String, PathBuf>) {
+        self.save_dir = hash;
+    }
+    pub fn add_save_dir(&mut self, k: String, v: PathBuf) {
+        self.save_dir.insert(k, v);
     }
 }

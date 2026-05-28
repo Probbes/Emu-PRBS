@@ -1,10 +1,10 @@
 use crc32fast::Hasher;
 use dioxus::{CapturedError, prelude::*};
-use fs_utils::copy::copy_directory;
+use dioxus_desktop::tao::window::Icon;
+use fs_extra::copy_items;
 use rfd::FileDialog;
 use rfd::MessageDialog;
 use std::ffi::OsStr;
-use std::fs::remove_dir_all;
 use std::fs::{self, DirBuilder, File};
 use std::io::BufReader;
 use std::io::Read;
@@ -113,56 +113,34 @@ pub fn create_folder(destination: &Path) {
 }
 
 pub fn overwrite_folder(source: &Path, destination: &Path) -> Result<(), CapturedError> {
-    // Ensure source has a valid folder name
     let name = source
         .file_name()
         .ok_or_else(|| CapturedError::msg("Source has no valid folder name"))?;
 
-    // Prevent empty or suspicious names
     if name == OsStr::new("") {
         return Err(CapturedError::msg("Invalid source folder name"));
     }
 
-    let target = destination.join(name);
+    let copy_options = fs_extra::dir::CopyOptions {
+        overwrite: true,
+        ..Default::default()
+    };
 
-    // Safety checks before deletion
-    validate_safe_to_delete(&target, destination)?;
-
-    // Try copy first
-    if let Err(_) = copy_directory(source, destination) {
-        // Only delete if target exists and is a directory
-        if target.exists() {
-            remove_dir_all(&target)?;
-        }
-
-        // Retry copy
-        copy_directory(source, destination)?;
-    }
+    copy_items(&[source], destination, &copy_options)?;
 
     Ok(())
 }
 
-fn validate_safe_to_delete(target: &Path, base: &Path) -> Result<(), CapturedError> {
-    let target = target.canonicalize().map_err(|_| CapturedError::msg("Invalid target path"))?;
-
-    let base = base.canonicalize().map_err(|_| CapturedError::msg("Invalid base path"))?;
-
-    // Prevent deleting root directories
-    if target.parent().is_none() {
-        return Err(CapturedError::msg("Refusing to delete root directory"));
+pub fn get_save_path(settings: &mut EmuSettings) {
+    println!("get saves");
+    let path = settings.git.get_directory().join(settings.git.get_repo_name());
+    let vec = get_all_folders(&path);
+    for v in vec.iter() {
+        let name = String::from(v.file_name().unwrap_or(OsStr::new("")).to_string_lossy());
+        if name != String::from(".git") {
+            settings.git.add_save_dir(name, v.to_path_buf());
+        }
     }
-
-    // Ensure target is inside the destination directory
-    if !target.starts_with(&base) {
-        return Err(CapturedError::msg("Target is outside destination directory"));
-    }
-
-    // Prevent deleting the base directory itself
-    if target == base {
-        return Err(CapturedError::msg("Refusing to delete destination root"));
-    }
-
-    Ok(())
 }
 
 pub fn get_games(settings: &mut EmuSettings) {
@@ -220,4 +198,34 @@ fn get_id(file: File) -> u32 {
         hasher.update(&buffer[..count]);
     }
     hasher.finalize()
+}
+
+pub fn get_all_folders(path: &PathBuf) -> Vec<PathBuf> {
+    let mut vec: Vec<PathBuf> = Vec::new();
+    match std::fs::read_dir(path) {
+        Ok(v) => {
+            for folder_entry in v {
+                if let Ok(e) = folder_entry {
+                    if let Ok(file_type) = e.file_type() {
+                        if file_type.is_dir() {
+                            vec.push(e.path());
+                        }
+                    }
+                }
+            }
+        }
+        Err(err) => show_error(&format!("Error while opening folder for dir scanning : {}", err)),
+    };
+    vec
+}
+
+pub fn create_icon() -> Icon {
+    let icon_bytes = include_bytes!("../../assets/chrysocolle.png");
+    let img = image::load_from_memory_with_format(icon_bytes, image::ImageFormat::Png)
+        .expect("Failed to decode embedded icon")
+        .into_rgba8();
+
+    let (width, height) = img.dimensions();
+    let rgba = img.into_raw();
+    Icon::from_rgba(rgba, width, height).expect("Failed to create window icon")
 }

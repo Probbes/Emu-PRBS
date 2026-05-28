@@ -1,8 +1,9 @@
 //#![windows_subsystem = "windows"]
 
 use dioxus::prelude::*;
+use dioxus_desktop::{Config, WindowBuilder, tao::window::Icon};
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult, MessageLevel};
-use std::path::Path;
+use std::{fs::File, io::BufReader, path::Path};
 
 const MAIN_CSS: &str = include_str!("../assets/styling/main.css");
 const TAILWIND_CSS: &str = include_str!("../assets/tailwind.css");
@@ -16,7 +17,18 @@ use crate::{Application::apputils, Application::gitutils};
 use Application::settings::*;
 
 fn main() {
-    dioxus::launch(App);
+    let window_icon = apputils::create_icon();
+
+    dioxus::LaunchBuilder::new()
+        .with_cfg(
+            Config::default().with_menu(None).with_window(
+                WindowBuilder::new()
+                    .with_maximized(false)
+                    .with_title("Chrysocolle")
+                    .with_window_icon(Some(window_icon)),
+            ),
+        )
+        .launch(App);
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -41,16 +53,18 @@ fn App() -> Element {
         } else {
             //gitutils::git_pull(&*settings.peek());
             apputils::get_games(&mut *settings.write());
+            apputils::get_save_path(&mut *settings.write());
         }
     });
 
     rsx! {
         style { "{MAIN_CSS}" }
         style { "{TAILWIND_CSS}" }
+        document::Link { rel: "icon", href: asset!("/assets/icon.ico") }
         document::Title{"Chrysocolle"}
-        document::Link{rel: "icon", href: asset!("/assets/favicon.ico")}
-        div { class: "flex flex-row-reverse bg-green-500 min-h-screen",
-            div { class: "flex-3",
+
+        div { class: "flex flex-row-reverse min-h-screen",
+            div { class: "flex-4",
                 match panel() {
                     Panel::Games => rsx! {
                         Games_Component { settings }
@@ -67,29 +81,28 @@ fn App() -> Element {
                 }
             }
 
-            div { class: "flex-1",
+            div { class: " bg-linear-to-t from-neutral to-primary-950",
                 div { class:"flex flex-col",
-                    div { class: "flex justify-center-safe items-center my-6",
-                        img {class:"h-12 mx-5 object-cover", src: ICON }
-                        "Chrysocolle"
+                    div { class: "flex items-center m-6 text-xl font-headline font-normal tracking-wide",
+                        img {class:"[image-rendering:pixelated] w-16 h-16", src: ICON }
+                        div {class:"ml-2",  "Chrysocolle"}
                     }
-                    div { class: " bg-cyan-500 my-2",
-                        Options { panel, settings }}
+                    Options { panel, settings }
                 }
 
             }
         }
 
         if *show_folder_warning.read() {
-            div { class:"absolute opacity-90 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-300 size-full",
-                div{ class: "absolute opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-orange-300 h-6/10 w-6/10",
+            div { class:"popup1",
+                div{ class: "popup2",
                     "Folder of the app containing the settings file was not found. Please select the folder where settings.toml should be :"
-                    button { class:"", onclick: move |_| {
+                    button { class:"button", onclick: move |_| {
                         let picked_folder = apputils::pick_folder();
                         settings.write().project_folder = picked_folder.join("Chrysocolle");
                         apputils::add_toml(&settings.read());
                         apputils::create_app_space(Path::new(&picked_folder));
-                        settings.write().git.set_directory(picked_folder.join("Saves"));
+                        settings.write().git.set_directory(picked_folder.join("Chrysocolle").join("Saves"));
                         apputils::get_games(&mut *settings.write());
                         show_folder_warning.set(false)
                     },"..."}
@@ -100,20 +113,27 @@ fn App() -> Element {
 }
 
 #[component]
-fn Options(panel: Signal<Panel>, settings: Signal<EmuSettings>) -> Element {
+fn Options(mut panel: Signal<Panel>, settings: Signal<EmuSettings>) -> Element {
+    let menu_items = [
+        (Panel::Games, "Games"),
+        (Panel::Emulators, "Emulators"),
+        (Panel::Cloud, "Cloud"),
+        (Panel::Settings, "Settings"),
+    ];
+
     rsx! {
-
-        div { class: "flex flex-col gap-1 min-w-full",
-
-            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Games),"Games"}
-
-            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Emulators), "Emulators" }
-
-            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Cloud), "Cloud" }
-
-            button { class:"optionbutton", onclick: move |_| panel.set(Panel::Settings), "Settings" }
-
-            button { class:"optionbutton", onclick: move |_| quit(settings), "Quit" }
+        div { class: "flex flex-col min-w-full gap-2",
+            for (target_panel, label) in menu_items {
+                button {
+                    class: "optionbutton flex items-center justify-between ",
+                    onclick: move |_| panel.set(target_panel),
+                    "{label}"
+                    if panel() == target_panel {
+                        div { class: "w-1 h-6 bg-white rounded-full" }
+                    }
+                }
+            }
+            button { class: "optionbutton", onclick: move |_| quit(settings), "Quit" }
         }
     }
 }

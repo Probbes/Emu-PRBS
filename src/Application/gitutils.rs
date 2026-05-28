@@ -65,9 +65,7 @@ pub fn git_push(settings: &EmuSettings) {
 
 //Add repository save files to the emulator
 pub fn add_repo_to_emu(settings: &EmuSettings, emulator_name: &String) -> Result<(), CapturedError> {
-    let git_path = Path::new(settings.git.get_directory())
-        .join(settings.git.get_repo_name())
-        .join(emulator_name);
+    let git_path = settings.emulators.get(emulator_name).unwrap_or(&Emulator::default()).get_git_path();
 
     match DirBuilder::new().create(&git_path) {
         Ok(()) => println!("Folder doesn't exists, creating..."),

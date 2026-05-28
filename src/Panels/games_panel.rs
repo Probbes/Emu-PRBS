@@ -5,38 +5,48 @@ use std::process::Command;
 use crate::Application::{apputils, gitutils};
 use crate::{EmuSettings, Emulator, Game};
 use dioxus::prelude::*;
+use regex::Regex;
 use rfd::MessageDialog;
 
 #[component]
 pub fn Games_Component(settings: Signal<EmuSettings>) -> Element {
-    let mut value = use_signal(|| 5);
     let is_editable = use_signal(|| false);
     let game_buf = use_signal(|| GameBuf::default());
     let emulators = settings.read().emulators.clone();
     let mut sortingmethod = use_signal(|| SortMethod::ByName);
 
     rsx! {
-        div {class:" bg-red-500 min-h-full flex flex-col",
-            div {class:"flex-1 bg-blue-400",
+        div {class:"panel flex flex-col overflow-hidden",
+            div {class:"flex-none px-4",
                 h1 { "Games" }
-                input { r#type:"range", min:"3", max:"12", value:value(), oninput: move |event| {
-                    value.set(event.value().parse::<i32>().unwrap());
-                }}
-                select {class:"", value: "name", onchange: move |e| {
-                    match e.value().as_str() {
-                        "name" => sortingmethod.set(SortMethod::ByName),
-                        "extension" => sortingmethod.set(SortMethod::ByExtension),
-                        "folder" => sortingmethod.set(SortMethod::ByFolder),
-                        _ => sortingmethod.set(SortMethod::ByName),
+                div {class:"flex items-center flex-wrap",
+                    div {class:"flex",
+                        "Size of items:"
+                        input {class:"mx-1", r#type:"range", min:"5", max:"12", value:settings.read().game_size, oninput: move |event| {
+                            settings.write().game_size = event.value().parse::<u8>().unwrap_or(5);
+                            apputils::add_toml(&*settings.peek());
+                        }}
                     }
-                },
-                    option {value: "name", "Name"  }
-                    option {value: "extension", "Extension"  }
-                    option {value: "folder", "Folder"  }
+                    div {class:"",
+                        "Sorting Method: "
+                        select {class:"", value: "name", onchange: move |e| {
+                            match e.value().as_str() {
+                                "name" => sortingmethod.set(SortMethod::ByName),
+                                "extension" => sortingmethod.set(SortMethod::ByExtension),
+                                "folder" => sortingmethod.set(SortMethod::ByFolder),
+                                _ => sortingmethod.set(SortMethod::ByName),
+                            }
+                        },
+                            option {value: "name", "Name"  }
+                            option {value: "extension", "Extension"  }
+                            //option {value: "folder", "Folder"  }
+                        }
+                    }
+
                 }
             }
-            div{ class:"flex-10 flex flex-wrap justify-start content-start m-3",
-                {show_games(settings, value(), is_editable, game_buf, sortingmethod)}
+            div{ class:"flex-1 overflow-y-auto custom-scrollbar flex flex-wrap justify-start content-start m-3",
+                {show_games(settings, is_editable, game_buf, sortingmethod)}
             }
         }
         if is_editable() {
@@ -58,36 +68,46 @@ fn Edit_Component(
     mut is_editable: Signal<bool>,
     game_buf: Signal<GameBuf>,
 ) -> Element {
-    let mut emulator_option = use_signal(|| game_buf.read().game.emulator.clone());
-    let game_key = game_buf.read().key;
-    let mut game = use_signal(|| game_buf.read().game.clone());
+    let v = &game_buf.read().game.emulator;
     rsx! {
-        div { class:"absolute opacity-90 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-gray-300 size-full",
-            div{ class: "absolute opacity-100 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-orange-300 h-6/10 w-6/10 flex flex-col mt-1",
-                "{game.peek().name}"
-                select { class:"",
-                    value: emulator_option,
-                    onchange: move |e| {
-                        emulator_option.set(e.value());
-                        game.write().emulator = e.value();
-                    },
-                    option { disabled: true, value: "", "Choose the emulator" }
-                    for (key, _val) in emulators.into_iter() {
-                        option { value: "{key}", "{key}" }
+        div { class:"popup1",
+            div{ class: "popup2",
+                div {
+                    div {class:"text-3xl font-headline font-extrabold tracking-wide", "{game_buf.peek().game.name}" }
+                    div {class:"flex flex-col m-4",
+                        "Emulator"
+                        select { class:"",
+                            value: v.to_owned(),
+                            onchange: move |e| {
+                                game_buf.write().game.emulator = e.value();
+                            },
+                            option { disabled: true, value: "", "Choose the emulator" }
+                            for (key, _val) in emulators.into_iter() {
+                                option { value: "{key}",selected: &key == &game_buf.read().game.emulator, "{key}" }
+                            }
+                        }
                     }
                 }
-                button { class:"", onclick: move |_| {
-                    settings.write().games.insert(game_key, game());
-                    apputils::add_toml(&settings.peek());
-                    println!("{:?}", game.clone());
+                div {class:"flex flex-nowrap justify-center",
+                    button { class:"button m-2", onclick: move |_| {
+                    let buf = game_buf.read();
+                    let mut s = settings.write();
+
+                    if let Some(existing_game) = s.games.get_mut(&buf.key) {
+                        existing_game.emulator = buf.game.emulator.clone();
+                    }
+                    apputils::add_toml(&s);
                     is_editable.set(false);}, "Save and close"
+                    }
+                    button { class:"button m-2", onclick: move |_| {is_editable.set(false);}, "Close without saving"  }
                 }
-                button { class:"", onclick: move |_| {is_editable.set(false);}, "Close without saving"  }
+
             }
         }
     }
 }
 
+#[derive(PartialEq)]
 enum SortMethod {
     ByName,
     ByExtension,
@@ -96,28 +116,27 @@ enum SortMethod {
 
 fn show_games(
     settings: Signal<EmuSettings>,
-    value: i32,
     is_editable: Signal<bool>,
     game_buf: Signal<GameBuf>,
     sorting_method: Signal<SortMethod>,
 ) -> Element {
-    let raw_keys: Vec<u32> = settings.read().games.keys().copied().collect();
+    let mut vec: Vec<u32> = settings.read().games.keys().copied().collect();
 
-    let vec = match *sorting_method.read() {
-        SortMethod::ByName => sort_by_name(settings, raw_keys),
-        SortMethod::ByExtension => sort_by_extension(settings, raw_keys),
-        SortMethod::ByFolder => sort_by_folder(settings, raw_keys),
+    match *sorting_method.read() {
+        SortMethod::ByName => sort_by_name(settings, &mut vec),
+        SortMethod::ByExtension => sort_by_extension(settings, &mut vec),
+        SortMethod::ByFolder => sort_by_name(settings, &mut vec),
     };
 
     //Should it shows games not present in folder but present in toml ?
     rsx! {
         for key in vec {
-            { game_button(settings, value, is_editable, game_buf, key) }
+            { game_button(settings, is_editable, game_buf, key) }
         }
     }
 }
 
-fn sort_by_name(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
+fn sort_by_name(settings: Signal<EmuSettings>, vec: &mut Vec<u32>) {
     let settings_read = settings.read();
 
     vec.sort_by(|a, b| {
@@ -126,11 +145,9 @@ fn sort_by_name(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
 
         name_a.cmp(&name_b)
     });
-
-    vec
 }
 
-fn sort_by_extension(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
+fn sort_by_extension(settings: Signal<EmuSettings>, vec: &mut Vec<u32>) {
     let settings_read = settings.read();
 
     vec.sort_by(|a, b| {
@@ -139,56 +156,46 @@ fn sort_by_extension(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u3
 
         name_a.cmp(&name_b)
     });
-
-    vec
 }
 
 //todo
-fn sort_by_folder(settings: Signal<EmuSettings>, mut vec: Vec<u32>) -> Vec<u32> {
-    let settings_read = settings.read();
+// fn sort_by_folder(settings: Signal<EmuSettings>, vec: &mut Vec<u32>) {
+//     let settings_read = settings.read();
+//     let v = apputils::get_all_folders(&settings.read().project_folder.join("Games"));
+//     for folder in v.into_iter() {
+//         for game in vec {}
+//     }
+// }
 
-    vec.sort_by(|a, b| {
-        let name_a = settings_read.games.get(a).map(|g| g.extension.to_lowercase()).unwrap_or_default();
-        let name_b = settings_read.games.get(b).map(|g| g.extension.to_lowercase()).unwrap_or_default();
-
-        name_a.cmp(&name_b)
-    });
-
-    vec
-}
-
-fn game_button(
-    settings: Signal<EmuSettings>,
-    value: i32,
-    mut is_editable: Signal<bool>,
-    mut game_buf: Signal<GameBuf>,
-    key: u32,
-) -> Element {
-    let s = settings.read();
-    let game = &s.games[&key];
-    let name = game.name.clone();
-    let emulator = game.emulator.clone();
-    let extension = game.extension.clone();
-
+fn game_button(settings: Signal<EmuSettings>, mut is_editable: Signal<bool>, mut game_buf: Signal<GameBuf>, key: u32) -> Element {
+    let value = settings.read().game_size;
+    let name = match settings.read().pure_name {
+        true => {
+            let re = Regex::new(r"\([^)]*\)|\[[^\]]*\]").unwrap();
+            &re.replace_all(&settings.read().games[&key].name, "").into_owned()
+        }
+        false => &settings.read().games[&key].name,
+    };
     rsx! {
         button {
             key: "{key}",
             style: "height: {value * 2}rem; width: {value * 2}rem;",
-            class: "bg-blue-500 group rounded-md m-1 relative",
+            class: "buttoncard group relative",
 
             onclick: move |_| {
                 let s = settings.read();
                 if let Some(game) = s.games.get(&key) {
-                    play(settings, game.clone());
+                    play(settings, &game);
                 }
             },
             div {class:"flex flex-col justify-evenly h-full",
-                div {class:"text-base", "{name}"}
-                div {class:"text-sm", "{emulator}"} }
-
+                div {style:"font-size: {value*3}px", class:"", "{name}"}
+                div {class:"bg-primary-900 p-1 rounded-md absolute top-0 right-0 text-xs  ", "{settings.read().games[&key].emulator}"}
+            }
+                div {class:"bg-primary-900 p-1 -mx-2 rounded-md absolute inset-s-0 top-0 text-xs", ".{settings.read().games[&key].extension}"}
 
             button {
-                class: "bg-purple-300 absolute top-0 right-0 opacity-0 group-hover:opacity-100 p-1",
+                class: "buttonedit",
                 onclick: move |e| {
                     e.stop_propagation();
                     let s = settings.read();
@@ -199,12 +206,11 @@ fn game_button(
                 },
                 "Edit"
             }
-            div {class:"bg-orange-300 absolute inset-s-0 top-0", "{extension}"  }
         }
     }
 }
 
-fn play(settings: Signal<EmuSettings>, val: Game) {
+fn play(settings: Signal<EmuSettings>, val: &Game) {
     let game_path = &val.path;
     match gitutils::add_repo_to_emu(&*settings.read(), &val.emulator) {
         Ok(()) => {
@@ -212,7 +218,7 @@ fn play(settings: Signal<EmuSettings>, val: Game) {
         }
         Err(err) => {
             MessageDialog::new()
-                .set_title("Error")
+                .set_title("Error add_repo_to_emu")
                 .set_description(err.to_string())
                 .set_buttons(rfd::MessageButtons::Ok)
                 .set_level(rfd::MessageLevel::Error)

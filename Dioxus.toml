@@ -1,11 +1,11 @@
 [application]
-name = "Emu-PRBS"
+name = "Chrysocolle"
 
 [bundle]
 identifier = "com.Probbes.app"
 publisher = "Probbes"
 category = "Utility"
 short_description = "A emulator manager that sync save files to github"
-icon = ["assets/favicon.ico", "favicon.ico"]
+icon = ["assets/icon.ico", "assets/Chrysocolle.png"]
 
 [desktop]
